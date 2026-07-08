@@ -3,20 +3,23 @@
 <head>
     <title>Biology Grade Dashboard</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 50px; text-align: center; background-color: #f4f7f6; }
-        .box { border: 1px solid #ccc; padding: 30px; border-radius: 10px; max-width: 400px; margin: auto; background: white; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); }
+        body { font-family: Arial, sans-serif; padding: 20px; text-align: center; background-color: #f4f7f6; }
+        .box { border: 1px solid #ccc; padding: 30px; border-radius: 10px; max-width: 600px; margin: auto; background: white; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); }
         input { display: block; width: 90%; margin: 15px auto; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
         button { padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; width: 95%; font-size: 16px;}
         button:hover { background: #218838; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }
+        th, td { border: 1px solid #ddd; padding: 10px; }
+        th { background-color: #f8f9fa; }
     </style>
 </head>
 <body>
 
     <div id="login-screen" class="box">
         <h2>Student Login</h2>
-        <p>Enter your assigned email/username and password.</p>
-        <input type="text" id="username" placeholder="Username / Email">
-        <input type="password" id="password" placeholder="Password / PIN">
+        <p>Enter your assigned username and password.</p>
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
         <button onclick="login()">Login</button>
         <p id="message" style="color:red; margin-top: 15px;"></p>
     </div>
@@ -26,14 +29,16 @@
         <hr>
         <h3>Current Grade: <span id="student-grade"></span>%</h3>
         <h3>Cohort Rank: <span id="student-rank"></span></h3>
+        
+        <div id="assignments-container"></div>
     </div>
 
     <script>
-        // REPLACE THIS WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
-        const API_URL = "https://script.google.com/macros/s/AKfycbxt0brfk2CuESz8RHj6F5ygeAp2-UyUpqQl6_vmkukhr5ALC3eW3CebmGIxHD9kjMsyBA/exec";
+        // LEAVE THIS AS YOUR WEB APP URL
+        const API_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
 
         async function login() {
-            document.getElementById('message').innerText = "Logging you in...";
+            document.getElementById('message').innerText = "Fetching your data...";
             const user = document.getElementById('username').value.trim();
             const pass = document.getElementById('password').value.trim();
 
@@ -46,20 +51,33 @@
                 const result = await response.json();
 
                 if (result.status === "success") {
-                    // Hide login, show dashboard
                     document.getElementById('login-screen').style.display = 'none';
                     document.getElementById('dashboard-screen').style.display = 'block';
                     
-                    // Fill in the data from Google Sheets
                     document.getElementById('student-name').innerText = result.data.name;
-                    document.getElementById('student-grade').innerText = result.data.overallGrade;
+                    // FIX: This forces the grade to have exactly 1 decimal place (e.g. 95.4)
+                    document.getElementById('student-grade').innerText = parseFloat(result.data.overallGrade).toFixed(1);
                     document.getElementById('student-rank').innerText = result.data.cohortRank;
+
+                    // Build the table of assignments
+                    let tableHTML = "<table><tr><th>Assignment</th><th>Category</th><th>Score</th></tr>";
+                    
+                    result.data.assignments.forEach(task => {
+                        tableHTML += `<tr>
+                            <td>${task.name}</td>
+                            <td>${task.category}</td>
+                            <td><strong>${task.score}</strong> / ${task.total}</td>
+                        </tr>`;
+                    });
+                    
+                    tableHTML += "</table>";
+                    document.getElementById('assignments-container').innerHTML = tableHTML;
+
                 } else {
                     document.getElementById('message').innerText = result.message;
                 }
             } catch (error) {
-                document.getElementById('message').innerText = "Error connecting to the grade database.";
-                console.error(error);
+                document.getElementById('message').innerText = "Error connecting to the database.";
             }
         }
     </script>
