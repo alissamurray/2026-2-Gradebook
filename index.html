@@ -36,12 +36,13 @@
 
     /* Table Fixes & Sorting */
     .table-container { overflow-x: auto; margin-top: 20px; border-radius: 5px; border: 1px solid #ddd; }
-    table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    table { width: 100%; border-collapse: collapse; min-width: 900px; }
     th, td { padding: 12px 15px; border-bottom: 1px solid #ddd; text-align: left; white-space: nowrap; }
     th { background: #f8f9fa; font-weight: bold; color: #444; }
     th.sortable { cursor: pointer; }
     th.sortable:hover { background: #e2e6ea; }
     tr:hover { background-color: #f1f5f9; }
+    .avg-col { color: #666; font-style: italic; }
   </style>
 </head>
 <body>
@@ -56,9 +57,10 @@
 
   <div class="container hidden" id="dashboard">
     <h1 id="studentName" style="margin-bottom: 5px;"></h1>
-    <h2 style="color: #0056b3; margin-top: 0;">
-      Overall Grade: <span id="overallGrade"></span>
-      <span id="whatIfBadge" style="font-size: 14px; color: #d08c00; display: none; margin-left: 10px;">(What-If Mode Active)</span>
+    <h2 style="color: #0056b3; margin-top: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 15px;">
+      <span>Overall Grade: <span id="overallGrade"></span></span>
+      <span style="color: #555; font-size: 0.85em; border-left: 2px solid #ccc; padding-left: 15px;">Cohort Rank: <strong id="cohortRank"></strong></span>
+      <span id="whatIfBadge" style="font-size: 14px; color: #d08c00; display: none;">(What-If Mode Active)</span>
     </h2>
     
     <div id="categorySummaries" class="summary-container"></div>
@@ -74,6 +76,8 @@
             <th>Score</th>
             <th>Max Points</th>
             <th class="sortable" onclick="sortTable('percentage')">Percentage ↕</th>
+            <th>Class Avg</th>
+            <th>Cohort Avg</th>
           </tr>
         </thead>
         <tbody id="assignmentsBody"></tbody>
@@ -84,7 +88,6 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbxt0brfk2CuESz8RHj6F5ygeAp2-UyUpqQl6_vmkukhr5ALC3eW3CebmGIxHD9kjMsyBA/exec";
 
-    // Global variables to hold data for sorting and what-if math
     let globalData = {};
     let assignmentsList = [];
     let currentSort = { column: null, ascending: true };
@@ -103,7 +106,6 @@
         if (data.status === "success") {
           globalData = data.data;
           
-          // Pre-calculate percentages and initialize hypothetical scores
           assignmentsList = globalData.assignments.map((a, index) => {
             let s = parseFloat(a.score);
             let t = parseFloat(a.total);
@@ -115,7 +117,7 @@
               isGraded: !isNaN(s),
               numTotal: isNaN(t) ? 0 : t,
               numScore: isNaN(s) ? 0 : s,
-              sortPct: pct !== null ? pct : -1 // -1 puts ungraded at the bottom when sorting
+              sortPct: pct !== null ? pct : -1
             };
           });
 
@@ -136,7 +138,6 @@
       return n;
     }
 
-    // Parses DD/MM/YYYY into a sortable number
     function parseDateForSort(dateStr) {
       if (!dateStr || dateStr === "-") return 0;
       let parts = dateStr.split('/');
@@ -178,7 +179,6 @@
       renderTable();
     }
 
-    // Triggered when a student types in an input box
     function updateHypothetical(index, value) {
       let assignment = assignmentsList.find(a => a.originalIndex === index);
       if (value === "") {
@@ -196,7 +196,6 @@
       const badgeEl = document.getElementById("whatIfBadge");
 
       if (!isWhatIfActive) {
-        // Reset to original data
         overallEl.classList.remove("what-if-mode");
         badgeEl.style.display = "none";
         let gradeNum = parsePercent(globalData.overallGrade);
@@ -205,11 +204,9 @@
         return;
       }
 
-      // We are in What-If Mode! Time to do the math.
       overallEl.classList.add("what-if-mode");
       badgeEl.style.display = "inline";
 
-      // 1. Tally points per category
       let categoryTotals = {};
       Object.keys(globalData.weights).forEach(cat => {
         categoryTotals[cat] = { earned: 0, possible: 0 };
@@ -229,7 +226,6 @@
         }
       });
 
-      // 2. Rebuild Category Summaries array for UI
       let newSummaries = [];
       let totalWeightedEarned = 0;
       let totalWeightsUsed = 0;
@@ -239,7 +235,7 @@
         let earned = categoryTotals[cat.name] ? categoryTotals[cat.name].earned : 0;
         let possible = categoryTotals[cat.name] ? categoryTotals[cat.name].possible : 0;
         
-        let newScoreStr = cat.score; // default to original
+        let newScoreStr = cat.score; 
         
         if (possible > 0) {
           let catPct = (earned / possible) * 100;
@@ -255,9 +251,7 @@
         });
       });
 
-      // 3. Calculate new overall grade
       if (totalWeightsUsed > 0) {
-        // Standardize it to 100% just in case their weights don't add up perfectly yet
         let newOverall = (totalWeightedEarned / totalWeightsUsed) * 100;
         overallEl.innerText = newOverall.toFixed(1) + "%";
       }
@@ -309,7 +303,6 @@
       assignmentsList.forEach(a => {
         let pctStr = "-";
         
-        // Input box for ungraded, raw text for graded
         let scoreCellHTML = "";
         if (a.isGraded) {
           scoreCellHTML = a.score;
@@ -325,6 +318,10 @@
           }
         }
 
+        // Defaulting averages to "-" until we update Apps Script
+        let classAvgStr = a.classAvg ? a.classAvg : "-";
+        let cohortAvgStr = a.cohortAvg ? a.cohortAvg : "-";
+
         tbody.innerHTML += `
           <tr>
             <td>${a.date}</td>
@@ -333,6 +330,8 @@
             <td>${scoreCellHTML}</td>
             <td>${a.total}</td>
             <td><strong>${pctStr}</strong></td>
+            <td class="avg-col">${classAvgStr}</td>
+            <td class="avg-col">${cohortAvgStr}</td>
           </tr>
         `;
       });
@@ -341,9 +340,10 @@
     function showDashboard() {
       document.getElementById("loginScreen").classList.add("hidden");
       document.getElementById("dashboard").classList.remove("hidden");
-      document.getElementById("studentName").innerText = globalData.name;
       
-      // Initial render defaults to real grades (not what-if)
+      document.getElementById("studentName").innerText = globalData.name;
+      document.getElementById("cohortRank").innerText = globalData.cohortRank || "N/A";
+      
       recalculateGrades();
       renderTable();
     }
