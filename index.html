@@ -13,11 +13,20 @@
     button { background: #0056b3; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; width: 100%; font-weight: bold; }
     button:hover { background: #004494; }
     
-    .summary-container { display: flex; flex-wrap: wrap; gap: 15px; margin: 25px 0; }
-    .summary-card { background: #e9ecef; padding: 15px; border-radius: 8px; flex: 1; min-width: 160px; text-align: center; border-left: 4px solid #0056b3; }
+    /* Standard Categories */
+    .summary-container { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; }
+    .summary-card { background: #e9ecef; padding: 15px; border-radius: 8px; flex: 1; min-width: 150px; text-align: center; border-left: 4px solid #0056b3; }
+    
+    /* Exam Categories (Larger at the bottom) */
+    .exam-container { display: flex; flex-wrap: wrap; gap: 15px; margin: 15px 0 25px 0; }
+    .summary-card.exam { background: #eef2f5; padding: 20px; border-left: 5px solid #d9534f; }
+    .summary-card.exam h4 { color: #d9534f; font-size: 16px; }
+    .summary-card.exam .score { font-size: 24px; color: #222; }
+
     .summary-card h4 { margin: 0 0 10px 0; font-size: 14px; color: #555; text-transform: uppercase; }
     .summary-card .score { font-size: 20px; font-weight: bold; color: #222; }
     .summary-card .converted { font-size: 13px; color: #0056b3; margin-top: 6px; font-weight: 600; }
+    .summary-card.exam .converted { color: #d9534f; font-size: 14px; }
 
     .table-container { overflow-x: auto; margin-top: 20px; border-radius: 5px; border: 1px solid #ddd; }
     table { width: 100%; border-collapse: collapse; min-width: 800px; }
@@ -41,6 +50,7 @@
     <h2 style="color: #0056b3; margin-top: 0;">Overall Grade: <span id="overallGrade"></span></h2>
     
     <div id="categorySummaries" class="summary-container"></div>
+    <div id="examSummaries" class="exam-container"></div>
 
     <div class="table-container">
       <table id="assignmentsTable">
@@ -51,7 +61,8 @@
             <th>Category</th>
             <th>Score</th>
             <th>Max Points</th>
-            <th>Percentage</th> </tr>
+            <th>Percentage</th>
+          </tr>
         </thead>
         <tbody id="assignmentsBody"></tbody>
       </table>
@@ -59,7 +70,6 @@
   </div>
 
   <script>
-    // YOUR EXACT DEPLOYMENT URL
     const API_URL = "https://script.google.com/macros/s/AKfycbxt0brfk2CuESz8RHj6F5ygeAp2-UyUpqQl6_vmkukhr5ALC3eW3CebmGIxHD9kjMsyBA/exec";
 
     function login() {
@@ -84,12 +94,11 @@
       });
     }
 
-    // Helper to standardise percentages in case Google Sheets exports "95%" as 0.95
     function parsePercent(val) {
       let n = parseFloat(val);
       if (isNaN(n)) return NaN;
       if (n !== 0 && n <= 1.5 && String(val).indexOf('%') === -1) {
-        return n * 100; // Converts 0.95 to 95
+        return n * 100;
       }
       return n;
     }
@@ -102,9 +111,11 @@
       let gradeNum = parsePercent(data.overallGrade);
       document.getElementById("overallGrade").innerText = isNaN(gradeNum) ? data.overallGrade : gradeNum.toFixed(1) + "%";
 
-      // 1. Render Category Summaries (with Converted Standards)
       const catDiv = document.getElementById("categorySummaries");
+      const examDiv = document.getElementById("examSummaries");
       catDiv.innerHTML = "";
+      examDiv.innerHTML = "";
+
       if (data.categorySummaries && data.categorySummaries.length > 0) {
         data.categorySummaries.forEach(cat => {
           let rawScore = parsePercent(cat.score);
@@ -113,23 +124,28 @@
           let weightRaw = parsePercent(data.weights[cat.name]);
           let convertedHTML = "";
           
-          // Calculate the conversion standard (e.g., 90% of a 15% weight = 13.5 / 15.0 pts)
           if (!isNaN(rawScore) && !isNaN(weightRaw)) {
             let convertedPoints = (rawScore / 100) * weightRaw;
             convertedHTML = `<div class="converted">Converted: ${convertedPoints.toFixed(1)} / ${weightRaw.toFixed(1)} pts</div>`;
           }
 
-          catDiv.innerHTML += `
-            <div class="summary-card">
+          let isExam = cat.name.toUpperCase().includes("MIDTERM") || cat.name.toUpperCase().includes("FINAL");
+          let cardHTML = `
+            <div class="summary-card ${isExam ? 'exam' : ''}">
               <h4>${cat.name}</h4>
               <div class="score">${scoreDisplay}</div>
               ${convertedHTML}
             </div>
           `;
+
+          if (isExam) {
+            examDiv.innerHTML += cardHTML;
+          } else {
+            catDiv.innerHTML += cardHTML;
+          }
         });
       }
 
-      // 2. Render Assignments Table (with 1-Decimal Percentage Math)
       const tbody = document.getElementById("assignmentsBody");
       tbody.innerHTML = "";
       data.assignments.forEach(a => {
