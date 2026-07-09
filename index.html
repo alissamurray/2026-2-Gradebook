@@ -9,21 +9,19 @@
     .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
     .hidden { display: none; }
     
-    /* Login Styles */
     input { display: block; width: 100%; margin: 15px 0; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; }
     button { background: #0056b3; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; width: 100%; font-weight: bold; }
     button:hover { background: #004494; }
     
-    /* Category Summary Cards */
     .summary-container { display: flex; flex-wrap: wrap; gap: 15px; margin: 25px 0; }
     .summary-card { background: #e9ecef; padding: 15px; border-radius: 8px; flex: 1; min-width: 160px; text-align: center; border-left: 4px solid #0056b3; }
     .summary-card h4 { margin: 0 0 10px 0; font-size: 14px; color: #555; text-transform: uppercase; }
     .summary-card .score { font-size: 20px; font-weight: bold; color: #222; }
+    .summary-card .converted { font-size: 13px; color: #0056b3; margin-top: 6px; font-weight: 600; }
 
-    /* Table Fixes */
     .table-container { overflow-x: auto; margin-top: 20px; border-radius: 5px; border: 1px solid #ddd; }
-    table { width: 100%; border-collapse: collapse; min-width: 750px; }
-    th, td { padding: 12px 15px; border-bottom: 1px solid #ddd; text-align: left; white-space: nowrap; /* FORCES ONE LINE */ }
+    table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    th, td { padding: 12px 15px; border-bottom: 1px solid #ddd; text-align: left; white-space: nowrap; }
     th { background: #f8f9fa; font-weight: bold; color: #444; }
     tr:hover { background-color: #f1f5f9; }
   </style>
@@ -53,7 +51,7 @@
             <th>Category</th>
             <th>Score</th>
             <th>Max Points</th>
-          </tr>
+            <th>Percentage</th> </tr>
         </thead>
         <tbody id="assignmentsBody"></tbody>
       </table>
@@ -86,34 +84,62 @@
       });
     }
 
+    // Helper to standardise percentages in case Google Sheets exports "95%" as 0.95
+    function parsePercent(val) {
+      let n = parseFloat(val);
+      if (isNaN(n)) return NaN;
+      if (n !== 0 && n <= 1.5 && String(val).indexOf('%') === -1) {
+        return n * 100; // Converts 0.95 to 95
+      }
+      return n;
+    }
+
     function showDashboard(data) {
       document.getElementById("loginScreen").classList.add("hidden");
       document.getElementById("dashboard").classList.remove("hidden");
-      
       document.getElementById("studentName").innerText = data.name;
       
-      // Round the overall grade to 1 decimal
-      let gradeNum = parseFloat(data.overallGrade);
+      let gradeNum = parsePercent(data.overallGrade);
       document.getElementById("overallGrade").innerText = isNaN(gradeNum) ? data.overallGrade : gradeNum.toFixed(1) + "%";
 
-      // 1. Render Category Summaries
+      // 1. Render Category Summaries (with Converted Standards)
       const catDiv = document.getElementById("categorySummaries");
       catDiv.innerHTML = "";
       if (data.categorySummaries && data.categorySummaries.length > 0) {
         data.categorySummaries.forEach(cat => {
+          let rawScore = parsePercent(cat.score);
+          let scoreDisplay = isNaN(rawScore) ? cat.score : rawScore.toFixed(1) + "%";
+          
+          let weightRaw = parsePercent(data.weights[cat.name]);
+          let convertedHTML = "";
+          
+          // Calculate the conversion standard (e.g., 90% of a 15% weight = 13.5 / 15.0 pts)
+          if (!isNaN(rawScore) && !isNaN(weightRaw)) {
+            let convertedPoints = (rawScore / 100) * weightRaw;
+            convertedHTML = `<div class="converted">Converted: ${convertedPoints.toFixed(1)} / ${weightRaw.toFixed(1)} pts</div>`;
+          }
+
           catDiv.innerHTML += `
             <div class="summary-card">
               <h4>${cat.name}</h4>
-              <div class="score">${cat.score}</div>
+              <div class="score">${scoreDisplay}</div>
+              ${convertedHTML}
             </div>
           `;
         });
       }
 
-      // 2. Render Assignments Table
+      // 2. Render Assignments Table (with 1-Decimal Percentage Math)
       const tbody = document.getElementById("assignmentsBody");
       tbody.innerHTML = "";
       data.assignments.forEach(a => {
+        let pctStr = "-";
+        let s = parseFloat(a.score);
+        let t = parseFloat(a.total);
+        if (!isNaN(s) && !isNaN(t) && t !== 0) {
+           pctStr = ((s / t) * 100).toFixed(1) + "%";
+        }
+
         tbody.innerHTML += `
           <tr>
             <td>${a.date}</td>
@@ -121,6 +147,7 @@
             <td>${a.category}</td>
             <td>${a.score}</td>
             <td>${a.total}</td>
+            <td><strong>${pctStr}</strong></td>
           </tr>
         `;
       });
