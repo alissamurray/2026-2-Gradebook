@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Student Portal</title>
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #f4f7f6; color: #333; }
-    .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #f4f7f6; color: #333; margin: 0; }
+    
+    /* Changed max-width to 95% to fill most of the screen */
+    .container { max-width: 95%; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); box-sizing: border-box; }
     .hidden { display: none; }
     
     input[type="text"], input[type="password"] { display: block; width: 100%; margin: 15px 0; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; }
@@ -35,14 +37,27 @@
     .whatif-input { width: 70px; padding: 6px; border: 2px solid #0056b3; border-radius: 4px; font-weight: bold; text-align: center; }
 
     /* Table Fixes & Sorting */
-    .table-container { overflow-x: auto; margin-top: 20px; border-radius: 5px; border: 1px solid #ddd; }
-    table { width: 100%; border-collapse: collapse; min-width: 900px; }
-    th, td { padding: 12px 15px; border-bottom: 1px solid #ddd; text-align: left; white-space: nowrap; }
+    .table-container { overflow-x: auto; margin-top: 20px; border-radius: 5px; border: 1px solid #ddd; width: 100%; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #ddd; text-align: left; white-space: nowrap; }
     th { background: #f8f9fa; font-weight: bold; color: #444; }
     th.sortable { cursor: pointer; }
     th.sortable:hover { background: #e2e6ea; }
     tr:hover { background-color: #f1f5f9; }
     .avg-col { color: #666; font-style: italic; }
+    
+    /* Allow assignment names to wrap so they don't force a massive horizontal scroll */
+    td:nth-child(2) { white-space: normal; min-width: 150px; }
+
+    /* MOBILE RESPONSIVENESS */
+    @media (max-width: 768px) {
+      body { padding: 10px; }
+      .container { width: 100%; max-width: 100%; padding: 15px; }
+      h2 { font-size: 1.2rem; flex-direction: column; align-items: flex-start; gap: 5px; }
+      span[style*="border-left"] { border-left: none !important; padding-left: 0 !important; }
+      th, td { padding: 8px; font-size: 14px; }
+      .summary-card { min-width: 100%; } /* Stacks cards on top of each other */
+    }
   </style>
 </head>
 <body>
@@ -74,7 +89,7 @@
             <th class="sortable" onclick="sortTable('name')">Assignment Name ↕</th>
             <th class="sortable" onclick="sortTable('category')">Category ↕</th>
             <th>Score</th>
-            <th>Max Points</th>
+            <th>Max Pts</th>
             <th class="sortable" onclick="sortTable('percentage')">Percentage ↕</th>
             <th>Class Avg</th>
             <th>Cohort Avg</th>
@@ -318,7 +333,6 @@
           }
         }
 
-        // Defaulting averages to "-" until we update Apps Script
         let classAvgStr = a.classAvg ? a.classAvg : "-";
         let cohortAvgStr = a.cohortAvg ? a.cohortAvg : "-";
 
