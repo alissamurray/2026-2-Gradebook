@@ -1,85 +1,130 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Biology Grade Dashboard</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; text-align: center; background-color: #f4f7f6; }
-        .box { border: 1px solid #ccc; padding: 30px; border-radius: 10px; max-width: 600px; margin: auto; background: white; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); }
-        input { display: block; width: 90%; margin: 15px auto; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
-        button { padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; width: 95%; font-size: 16px;}
-        button:hover { background: #218838; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }
-        th, td { border: 1px solid #ddd; padding: 10px; }
-        th { background-color: #f8f9fa; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Portal</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #f4f7f6; color: #333; }
+    .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .hidden { display: none; }
+    
+    /* Login Styles */
+    input { display: block; width: 100%; margin: 15px 0; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; }
+    button { background: #0056b3; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; width: 100%; font-weight: bold; }
+    button:hover { background: #004494; }
+    
+    /* Category Summary Cards */
+    .summary-container { display: flex; flex-wrap: wrap; gap: 15px; margin: 25px 0; }
+    .summary-card { background: #e9ecef; padding: 15px; border-radius: 8px; flex: 1; min-width: 160px; text-align: center; border-left: 4px solid #0056b3; }
+    .summary-card h4 { margin: 0 0 10px 0; font-size: 14px; color: #555; text-transform: uppercase; }
+    .summary-card .score { font-size: 20px; font-weight: bold; color: #222; }
+
+    /* Table Fixes */
+    .table-container { overflow-x: auto; margin-top: 20px; border-radius: 5px; border: 1px solid #ddd; }
+    table { width: 100%; border-collapse: collapse; min-width: 750px; }
+    th, td { padding: 12px 15px; border-bottom: 1px solid #ddd; text-align: left; white-space: nowrap; /* FORCES ONE LINE */ }
+    th { background: #f8f9fa; font-weight: bold; color: #444; }
+    tr:hover { background-color: #f1f5f9; }
+  </style>
 </head>
 <body>
 
-    <div id="login-screen" class="box">
-        <h2>Student Login</h2>
-        <p>Enter your assigned username and password.</p>
-        <input type="text" id="username" placeholder="Username">
-        <input type="password" id="password" placeholder="Password">
-        <button onclick="login()">Login</button>
-        <p id="message" style="color:red; margin-top: 15px;"></p>
+  <div class="container" id="loginScreen">
+    <h2 style="text-align: center;">Student Portal Login</h2>
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+    <p id="errorMsg" style="color:red; text-align: center; margin-top: 15px;"></p>
+  </div>
+
+  <div class="container hidden" id="dashboard">
+    <h1 id="studentName" style="margin-bottom: 5px;"></h1>
+    <h2 style="color: #0056b3; margin-top: 0;">Overall Grade: <span id="overallGrade"></span></h2>
+    
+    <div id="categorySummaries" class="summary-container"></div>
+
+    <div class="table-container">
+      <table id="assignmentsTable">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Assignment Name</th>
+            <th>Category</th>
+            <th>Score</th>
+            <th>Max Points</th>
+          </tr>
+        </thead>
+        <tbody id="assignmentsBody"></tbody>
+      </table>
     </div>
+  </div>
 
-    <div id="dashboard-screen" class="box" style="display:none;">
-        <h2>Welcome, <span id="student-name"></span>!</h2>
-        <hr>
-        <h3>Current Grade: <span id="student-grade"></span>%</h3>
-        <h3>Cohort Rank: <span id="student-rank"></span></h3>
-        
-        <div id="assignments-container"></div>
-    </div>
+  <script>
+    // YOUR EXACT DEPLOYMENT URL
+    const API_URL = "https://script.google.com/macros/s/AKfycbxt0brfk2CuESz8RHj6F5ygeAp2-UyUpqQl6_vmkukhr5ALC3eW3CebmGIxHD9kjMsyBA/exec";
 
-    <script>
-        // LEAVE THIS AS YOUR WEB APP URL
-        const API_URL = "https://script.google.com/macros/s/AKfycbxt0brfk2CuESz8RHj6F5ygeAp2-UyUpqQl6_vmkukhr5ALC3eW3CebmGIxHD9kjMsyBA/exec";
+    function login() {
+      const u = document.getElementById("username").value;
+      const p = document.getElementById("password").value;
+      document.getElementById("errorMsg").innerText = "Logging in...";
 
-        async function login() {
-            document.getElementById('message').innerText = "Fetching your data...";
-            const user = document.getElementById('username').value.trim();
-            const pass = document.getElementById('password').value.trim();
-
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ username: user, password: pass })
-                });
-
-                const result = await response.json();
-
-                if (result.status === "success") {
-                    document.getElementById('login-screen').style.display = 'none';
-                    document.getElementById('dashboard-screen').style.display = 'block';
-                    
-                    document.getElementById('student-name').innerText = result.data.name;
-                    // FIX: This forces the grade to have exactly 1 decimal place (e.g. 95.4)
-                    document.getElementById('student-grade').innerText = parseFloat(result.data.overallGrade).toFixed(1);
-                    document.getElementById('student-rank').innerText = result.data.cohortRank;
-
-                    // Build the table of assignments
-                    let tableHTML = "<table><tr><th>Assignment</th><th>Category</th><th>Score</th></tr>";
-                    
-                    result.data.assignments.forEach(task => {
-                        tableHTML += `<tr>
-                            <td>${task.name}</td>
-                            <td>${task.category}</td>
-                            <td><strong>${task.score}</strong> / ${task.total}</td>
-                        </tr>`;
-                    });
-                    
-                    tableHTML += "</table>";
-                    document.getElementById('assignments-container').innerHTML = tableHTML;
-
-                } else {
-                    document.getElementById('message').innerText = result.message;
-                }
-            } catch (error) {
-                document.getElementById('message').innerText = "Error connecting to the database.";
-            }
+      fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ username: u, password: p })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          showDashboard(data.data);
+        } else {
+          document.getElementById("errorMsg").innerText = data.message;
         }
-    </script>
+      })
+      .catch(err => {
+        document.getElementById("errorMsg").innerText = "Error connecting to the database.";
+      });
+    }
+
+    function showDashboard(data) {
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("dashboard").classList.remove("hidden");
+      
+      document.getElementById("studentName").innerText = data.name;
+      
+      // Round the overall grade to 1 decimal
+      let gradeNum = parseFloat(data.overallGrade);
+      document.getElementById("overallGrade").innerText = isNaN(gradeNum) ? data.overallGrade : gradeNum.toFixed(1) + "%";
+
+      // 1. Render Category Summaries
+      const catDiv = document.getElementById("categorySummaries");
+      catDiv.innerHTML = "";
+      if (data.categorySummaries && data.categorySummaries.length > 0) {
+        data.categorySummaries.forEach(cat => {
+          catDiv.innerHTML += `
+            <div class="summary-card">
+              <h4>${cat.name}</h4>
+              <div class="score">${cat.score}</div>
+            </div>
+          `;
+        });
+      }
+
+      // 2. Render Assignments Table
+      const tbody = document.getElementById("assignmentsBody");
+      tbody.innerHTML = "";
+      data.assignments.forEach(a => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${a.date}</td>
+            <td>${a.name}</td>
+            <td>${a.category}</td>
+            <td>${a.score}</td>
+            <td>${a.total}</td>
+          </tr>
+        `;
+      });
+    }
+  </script>
 </body>
 </html>
