@@ -9,15 +9,15 @@
     .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
     .hidden { display: none; }
     
-    input { display: block; width: 100%; margin: 15px 0; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; }
+    input[type="text"], input[type="password"] { display: block; width: 100%; margin: 15px 0; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; }
     button { background: #0056b3; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; width: 100%; font-weight: bold; }
     button:hover { background: #004494; }
     
-    /* Standard Categories */
+    /* Category Cards */
     .summary-container { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; }
-    .summary-card { background: #e9ecef; padding: 15px; border-radius: 8px; flex: 1; min-width: 150px; text-align: center; border-left: 4px solid #0056b3; }
+    .summary-card { background: #e9ecef; padding: 15px; border-radius: 8px; flex: 1; min-width: 150px; text-align: center; border-left: 4px solid #0056b3; transition: all 0.3s; }
     
-    /* Exam Categories (Larger at the bottom) */
+    /* Exam Cards */
     .exam-container { display: flex; flex-wrap: wrap; gap: 15px; margin: 15px 0 25px 0; }
     .summary-card.exam { background: #eef2f5; padding: 20px; border-left: 5px solid #d9534f; }
     .summary-card.exam h4 { color: #d9534f; font-size: 16px; }
@@ -28,10 +28,19 @@
     .summary-card .converted { font-size: 13px; color: #0056b3; margin-top: 6px; font-weight: 600; }
     .summary-card.exam .converted { color: #d9534f; font-size: 14px; }
 
+    /* What-If Mode Highlights */
+    .what-if-mode { color: #d08c00 !important; }
+    .what-if-card { background: #fff8e1 !important; border-left-color: #d08c00 !important; }
+    .what-if-card .converted { color: #d08c00 !important; }
+    .whatif-input { width: 70px; padding: 6px; border: 2px solid #0056b3; border-radius: 4px; font-weight: bold; text-align: center; }
+
+    /* Table Fixes & Sorting */
     .table-container { overflow-x: auto; margin-top: 20px; border-radius: 5px; border: 1px solid #ddd; }
     table { width: 100%; border-collapse: collapse; min-width: 800px; }
     th, td { padding: 12px 15px; border-bottom: 1px solid #ddd; text-align: left; white-space: nowrap; }
     th { background: #f8f9fa; font-weight: bold; color: #444; }
+    th.sortable { cursor: pointer; }
+    th.sortable:hover { background: #e2e6ea; }
     tr:hover { background-color: #f1f5f9; }
   </style>
 </head>
@@ -47,7 +56,10 @@
 
   <div class="container hidden" id="dashboard">
     <h1 id="studentName" style="margin-bottom: 5px;"></h1>
-    <h2 style="color: #0056b3; margin-top: 0;">Overall Grade: <span id="overallGrade"></span></h2>
+    <h2 style="color: #0056b3; margin-top: 0;">
+      Overall Grade: <span id="overallGrade"></span>
+      <span id="whatIfBadge" style="font-size: 14px; color: #d08c00; display: none; margin-left: 10px;">(What-If Mode Active)</span>
+    </h2>
     
     <div id="categorySummaries" class="summary-container"></div>
     <div id="examSummaries" class="exam-container"></div>
@@ -56,12 +68,12 @@
       <table id="assignmentsTable">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Assignment Name</th>
-            <th>Category</th>
+            <th class="sortable" onclick="sortTable('date')">Date ↕</th>
+            <th class="sortable" onclick="sortTable('name')">Assignment Name ↕</th>
+            <th class="sortable" onclick="sortTable('category')">Category ↕</th>
             <th>Score</th>
             <th>Max Points</th>
-            <th>Percentage</th>
+            <th class="sortable" onclick="sortTable('percentage')">Percentage ↕</th>
           </tr>
         </thead>
         <tbody id="assignmentsBody"></tbody>
@@ -71,6 +83,11 @@
 
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbxt0brfk2CuESz8RHj6F5ygeAp2-UyUpqQl6_vmkukhr5ALC3eW3CebmGIxHD9kjMsyBA/exec";
+
+    // Global variables to hold data for sorting and what-if math
+    let globalData = {};
+    let assignmentsList = [];
+    let currentSort = { column: null, ascending: true };
 
     function login() {
       const u = document.getElementById("username").value;
@@ -84,7 +101,25 @@
       .then(res => res.json())
       .then(data => {
         if (data.status === "success") {
-          showDashboard(data.data);
+          globalData = data.data;
+          
+          // Pre-calculate percentages and initialize hypothetical scores
+          assignmentsList = globalData.assignments.map((a, index) => {
+            let s = parseFloat(a.score);
+            let t = parseFloat(a.total);
+            let pct = (!isNaN(s) && !isNaN(t) && t !== 0) ? (s / t) * 100 : null;
+            return {
+              ...a,
+              originalIndex: index,
+              hypotheticalScore: null,
+              isGraded: !isNaN(s),
+              numTotal: isNaN(t) ? 0 : t,
+              numScore: isNaN(s) ? 0 : s,
+              sortPct: pct !== null ? pct : -1 // -1 puts ungraded at the bottom when sorting
+            };
+          });
+
+          showDashboard();
         } else {
           document.getElementById("errorMsg").innerText = data.message;
         }
@@ -97,63 +132,197 @@
     function parsePercent(val) {
       let n = parseFloat(val);
       if (isNaN(n)) return NaN;
-      if (n !== 0 && n <= 1.5 && String(val).indexOf('%') === -1) {
-        return n * 100;
-      }
+      if (n !== 0 && n <= 1.5 && String(val).indexOf('%') === -1) return n * 100;
       return n;
     }
 
-    function showDashboard(data) {
-      document.getElementById("loginScreen").classList.add("hidden");
-      document.getElementById("dashboard").classList.remove("hidden");
-      document.getElementById("studentName").innerText = data.name;
-      
-      let gradeNum = parsePercent(data.overallGrade);
-      document.getElementById("overallGrade").innerText = isNaN(gradeNum) ? data.overallGrade : gradeNum.toFixed(1) + "%";
+    // Parses DD/MM/YYYY into a sortable number
+    function parseDateForSort(dateStr) {
+      if (!dateStr || dateStr === "-") return 0;
+      let parts = dateStr.split('/');
+      if (parts.length === 3) {
+        return new Date(parts[2], parts[1] - 1, parts[0]).getTime();
+      }
+      return 0;
+    }
 
+    function sortTable(column) {
+      if (currentSort.column === column) {
+        currentSort.ascending = !currentSort.ascending;
+      } else {
+        currentSort.column = column;
+        currentSort.ascending = true;
+      }
+
+      assignmentsList.sort((a, b) => {
+        let valA, valB;
+        if (column === 'date') {
+          valA = parseDateForSort(a.date);
+          valB = parseDateForSort(b.date);
+        } else if (column === 'name') {
+          valA = a.name.toLowerCase();
+          valB = b.name.toLowerCase();
+        } else if (column === 'category') {
+          valA = a.category.toLowerCase();
+          valB = b.category.toLowerCase();
+        } else if (column === 'percentage') {
+          valA = a.sortPct;
+          valB = b.sortPct;
+        }
+
+        if (valA < valB) return currentSort.ascending ? -1 : 1;
+        if (valA > valB) return currentSort.ascending ? 1 : -1;
+        return 0;
+      });
+
+      renderTable();
+    }
+
+    // Triggered when a student types in an input box
+    function updateHypothetical(index, value) {
+      let assignment = assignmentsList.find(a => a.originalIndex === index);
+      if (value === "") {
+        assignment.hypotheticalScore = null;
+      } else {
+        assignment.hypotheticalScore = parseFloat(value);
+      }
+      recalculateGrades();
+    }
+
+    function recalculateGrades() {
+      let isWhatIfActive = assignmentsList.some(a => a.hypotheticalScore !== null);
+      
+      const overallEl = document.getElementById("overallGrade");
+      const badgeEl = document.getElementById("whatIfBadge");
+
+      if (!isWhatIfActive) {
+        // Reset to original data
+        overallEl.classList.remove("what-if-mode");
+        badgeEl.style.display = "none";
+        let gradeNum = parsePercent(globalData.overallGrade);
+        overallEl.innerText = isNaN(gradeNum) ? globalData.overallGrade : gradeNum.toFixed(1) + "%";
+        renderSummaries(globalData.categorySummaries, false);
+        return;
+      }
+
+      // We are in What-If Mode! Time to do the math.
+      overallEl.classList.add("what-if-mode");
+      badgeEl.style.display = "inline";
+
+      // 1. Tally points per category
+      let categoryTotals = {};
+      Object.keys(globalData.weights).forEach(cat => {
+        categoryTotals[cat] = { earned: 0, possible: 0 };
+      });
+
+      assignmentsList.forEach(a => {
+        if (!categoryTotals[a.category]) {
+          categoryTotals[a.category] = { earned: 0, possible: 0 };
+        }
+
+        if (a.isGraded) {
+          categoryTotals[a.category].earned += a.numScore;
+          categoryTotals[a.category].possible += a.numTotal;
+        } else if (a.hypotheticalScore !== null) {
+          categoryTotals[a.category].earned += a.hypotheticalScore;
+          categoryTotals[a.category].possible += a.numTotal;
+        }
+      });
+
+      // 2. Rebuild Category Summaries array for UI
+      let newSummaries = [];
+      let totalWeightedEarned = 0;
+      let totalWeightsUsed = 0;
+
+      globalData.categorySummaries.forEach(cat => {
+        let weightRaw = parsePercent(globalData.weights[cat.name]) || 0;
+        let earned = categoryTotals[cat.name] ? categoryTotals[cat.name].earned : 0;
+        let possible = categoryTotals[cat.name] ? categoryTotals[cat.name].possible : 0;
+        
+        let newScoreStr = cat.score; // default to original
+        
+        if (possible > 0) {
+          let catPct = (earned / possible) * 100;
+          newScoreStr = catPct.toFixed(1) + "%";
+          
+          totalWeightedEarned += (catPct / 100) * weightRaw;
+          totalWeightsUsed += weightRaw;
+        }
+
+        newSummaries.push({
+          name: cat.name,
+          score: newScoreStr
+        });
+      });
+
+      // 3. Calculate new overall grade
+      if (totalWeightsUsed > 0) {
+        // Standardize it to 100% just in case their weights don't add up perfectly yet
+        let newOverall = (totalWeightedEarned / totalWeightsUsed) * 100;
+        overallEl.innerText = newOverall.toFixed(1) + "%";
+      }
+
+      renderSummaries(newSummaries, true);
+    }
+
+    function renderSummaries(summaries, isWhatIf) {
       const catDiv = document.getElementById("categorySummaries");
       const examDiv = document.getElementById("examSummaries");
       catDiv.innerHTML = "";
       examDiv.innerHTML = "";
 
-      if (data.categorySummaries && data.categorySummaries.length > 0) {
-        data.categorySummaries.forEach(cat => {
-          let rawScore = parsePercent(cat.score);
-          let scoreDisplay = isNaN(rawScore) ? cat.score : rawScore.toFixed(1) + "%";
-          
-          let weightRaw = parsePercent(data.weights[cat.name]);
-          let convertedHTML = "";
-          
-          if (!isNaN(rawScore) && !isNaN(weightRaw)) {
-            let convertedPoints = (rawScore / 100) * weightRaw;
-            convertedHTML = `<div class="converted">Converted: ${convertedPoints.toFixed(1)} / ${weightRaw.toFixed(1)} pts</div>`;
-          }
+      summaries.forEach(cat => {
+        let rawScore = parsePercent(cat.score);
+        let scoreDisplay = isNaN(rawScore) ? cat.score : rawScore.toFixed(1) + "%";
+        
+        let weightRaw = parsePercent(globalData.weights[cat.name]);
+        let convertedHTML = "";
+        
+        if (!isNaN(rawScore) && !isNaN(weightRaw)) {
+          let convertedPoints = (rawScore / 100) * weightRaw;
+          convertedHTML = `<div class="converted">Converted: ${convertedPoints.toFixed(1)} / ${weightRaw.toFixed(1)} pts</div>`;
+        }
 
-          let isExam = cat.name.toUpperCase().includes("MIDTERM") || cat.name.toUpperCase().includes("FINAL");
-          let cardHTML = `
-            <div class="summary-card ${isExam ? 'exam' : ''}">
-              <h4>${cat.name}</h4>
-              <div class="score">${scoreDisplay}</div>
-              ${convertedHTML}
-            </div>
-          `;
+        let isExam = cat.name.toUpperCase().includes("MIDTERM") || cat.name.toUpperCase().includes("FINAL");
+        let extraClass = isWhatIf ? "what-if-card" : "";
+        
+        let cardHTML = `
+          <div class="summary-card ${isExam ? 'exam' : ''} ${extraClass}">
+            <h4>${cat.name}</h4>
+            <div class="score">${scoreDisplay}</div>
+            ${convertedHTML}
+          </div>
+        `;
 
-          if (isExam) {
-            examDiv.innerHTML += cardHTML;
-          } else {
-            catDiv.innerHTML += cardHTML;
-          }
-        });
-      }
+        if (isExam) {
+          examDiv.innerHTML += cardHTML;
+        } else {
+          catDiv.innerHTML += cardHTML;
+        }
+      });
+    }
 
+    function renderTable() {
       const tbody = document.getElementById("assignmentsBody");
       tbody.innerHTML = "";
-      data.assignments.forEach(a => {
+
+      assignmentsList.forEach(a => {
         let pctStr = "-";
-        let s = parseFloat(a.score);
-        let t = parseFloat(a.total);
-        if (!isNaN(s) && !isNaN(t) && t !== 0) {
-           pctStr = ((s / t) * 100).toFixed(1) + "%";
+        
+        // Input box for ungraded, raw text for graded
+        let scoreCellHTML = "";
+        if (a.isGraded) {
+          scoreCellHTML = a.score;
+          if (a.numTotal !== 0) {
+            pctStr = ((a.numScore / a.numTotal) * 100).toFixed(1) + "%";
+          }
+        } else {
+          let val = a.hypotheticalScore !== null ? a.hypotheticalScore : "";
+          scoreCellHTML = `<input type="number" class="whatif-input" value="${val}" placeholder="?" oninput="updateHypothetical(${a.originalIndex}, this.value)">`;
+          
+          if (a.hypotheticalScore !== null && a.numTotal !== 0) {
+            pctStr = `<span class="what-if-mode">${((a.hypotheticalScore / a.numTotal) * 100).toFixed(1)}%</span>`;
+          }
         }
 
         tbody.innerHTML += `
@@ -161,12 +330,22 @@
             <td>${a.date}</td>
             <td>${a.name}</td>
             <td>${a.category}</td>
-            <td>${a.score}</td>
+            <td>${scoreCellHTML}</td>
             <td>${a.total}</td>
             <td><strong>${pctStr}</strong></td>
           </tr>
         `;
       });
+    }
+
+    function showDashboard() {
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("dashboard").classList.remove("hidden");
+      document.getElementById("studentName").innerText = globalData.name;
+      
+      // Initial render defaults to real grades (not what-if)
+      recalculateGrades();
+      renderTable();
     }
   </script>
 </body>
