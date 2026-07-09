@@ -7,8 +7,8 @@
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #f4f7f6; color: #333; margin: 0; }
     
-    /* Changed max-width to 95% to fill most of the screen */
-    .container { max-width: 95%; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); box-sizing: border-box; }
+    /* Added a max-width cap so it doesn't over-stretch on giant desktop screens */
+    .container { width: 95%; max-width: 1300px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); box-sizing: border-box; }
     .hidden { display: none; }
     
     input[type="text"], input[type="password"] { display: block; width: 100%; margin: 15px 0; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; }
@@ -36,17 +36,29 @@
     .what-if-card .converted { color: #d08c00 !important; }
     .whatif-input { width: 70px; padding: 6px; border: 2px solid #0056b3; border-radius: 4px; font-weight: bold; text-align: center; }
 
-    /* Table Fixes & Sorting */
+    /* Table Fixes, Alignment, and Tighter Padding */
     .table-container { overflow-x: auto; margin-top: 20px; border-radius: 5px; border: 1px solid #ddd; width: 100%; }
     table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 10px 12px; border-bottom: 1px solid #ddd; text-align: left; white-space: nowrap; }
+    
+    /* Reduced horizontal padding from 12px to 8px to reduce empty space buffer */
+    th, td { padding: 10px 8px; border-bottom: 1px solid #ddd; text-align: left; white-space: nowrap; }
     th { background: #f8f9fa; font-weight: bold; color: #444; }
     th.sortable { cursor: pointer; }
     th.sortable:hover { background: #e2e6ea; }
     tr:hover { background-color: #f1f5f9; }
     .avg-col { color: #666; font-style: italic; }
     
-    /* Allow assignment names to wrap so they don't force a massive horizontal scroll */
+    /* Target specific columns for centering (Date, Score, Max Pts, Pct, Averages) */
+    th:nth-child(1), td:nth-child(1),
+    th:nth-child(4), td:nth-child(4),
+    th:nth-child(5), td:nth-child(5),
+    th:nth-child(6), td:nth-child(6),
+    th:nth-child(7), td:nth-child(7),
+    th:nth-child(8), td:nth-child(8) {
+      text-align: center;
+    }
+
+    /* Allow assignment names to wrap nicely */
     td:nth-child(2) { white-space: normal; min-width: 150px; }
 
     /* MOBILE RESPONSIVENESS */
@@ -55,8 +67,8 @@
       .container { width: 100%; max-width: 100%; padding: 15px; }
       h2 { font-size: 1.2rem; flex-direction: column; align-items: flex-start; gap: 5px; }
       span[style*="border-left"] { border-left: none !important; padding-left: 0 !important; }
-      th, td { padding: 8px; font-size: 14px; }
-      .summary-card { min-width: 100%; } /* Stacks cards on top of each other */
+      th, td { padding: 8px 6px; font-size: 14px; }
+      .summary-card { min-width: 100%; }
     }
   </style>
 </head>
@@ -153,11 +165,12 @@
       return n;
     }
 
+    // Updated to handle MM/DD/YYYY numeric sorting properly
     function parseDateForSort(dateStr) {
       if (!dateStr || dateStr === "-") return 0;
       let parts = dateStr.split('/');
       if (parts.length === 3) {
-        return new Date(parts[2], parts[1] - 1, parts[0]).getTime();
+        return new Date(parts[2], parts[0] - 1, parts[1]).getTime();
       }
       return 0;
     }
@@ -333,12 +346,24 @@
           }
         }
 
+        // Swapped date parsing logic from DD/MM/YYYY to MM/DD/YYYY format
+        let formattedDate = "-";
+        if (a.date && a.date !== "-") {
+          let parts = a.date.split('/');
+          if (parts.length === 3) {
+            // Converts incoming structural data parts to MM/DD/YYYY format
+            formattedDate = parts[1] + "/" + parts[0] + "/" + parts[2];
+          } else {
+            formattedDate = a.date;
+          }
+        }
+
         let classAvgStr = a.classAvg ? a.classAvg : "-";
         let cohortAvgStr = a.cohortAvg ? a.cohortAvg : "-";
 
         tbody.innerHTML += `
           <tr>
-            <td>${a.date}</td>
+            <td>${formattedDate}</td>
             <td>${a.name}</td>
             <td>${a.category}</td>
             <td>${scoreCellHTML}</td>
