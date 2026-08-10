@@ -17,6 +17,9 @@
     .back-btn { background: #6c757d; width: auto; padding: 8px 15px; margin-bottom: 20px; font-size: 14px; }
     .back-btn:hover { background: #5a6268; }
 
+    .link-btn { background: none; border: none; color: #0056b3; text-decoration: underline; cursor: pointer; font-size: 14px; padding: 0; font-weight: normal; width: auto; display: inline-block; margin-top: 10px; }
+    .link-btn:hover { background: none; color: #004494; }
+
     /* Course Menu Grid */
     .course-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 20px; }
     .course-btn { background: #e9ecef; color: #0056b3; border-left: 5px solid #0056b3; font-size: 18px; padding: 25px; text-align: left; }
@@ -70,18 +73,44 @@
     <input type="password" id="password" placeholder="Password">
     
     <button onclick="login()">Next</button>
+    <div style="text-align: center;">
+      <button class="link-btn" onclick="showForgotPassword()">Forgot Password?</button>
+    </div>
     <p id="errorMsg" style="color:red; text-align: center; margin-top: 15px;"></p>
+  </div>
+
+  <!-- 1.2 FORGOT PASSWORD SCREEN -->
+  <div class="container hidden" id="forgotPasswordScreen">
+    <h2 style="text-align: center;">Reset Password</h2>
+    <p style="text-align: center; color: #555;">Enter your school email. A temporary password will be sent to you.</p>
+    <input type="text" id="forgotEmail" placeholder="School Email">
+    <button onclick="requestPasswordReset()">Send Temporary Password</button>
+    <button class="back-btn" style="margin-top: 20px; width: 100%;" onclick="hideForgotPassword()">⬅ Back to Login</button>
+    <p id="forgotErrorMsg" style="text-align: center; margin-top: 15px;"></p>
   </div>
 
   <!-- 1.5. SEMESTER SELECTION SCREEN -->
   <div class="container hidden" id="semesterMenu">
-    <button class="back-btn" onclick="logout()">⬅ Logout</button>
-    <h2 style="text-align: center;">Select Semester</h2>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <button class="back-btn" onclick="logout()">⬅ Logout</button>
+      <button class="back-btn" style="background: #17a2b8;" onclick="showChangePassword()">⚙️ Change Password</button>
+    </div>
+    <h2 style="text-align: center; margin-top: 0;">Select Semester</h2>
     <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
       <button onclick="fetchGrades('1st Semester')">1st Semester</button>
       <button onclick="fetchGrades('2nd Semester')">2nd Semester</button>
     </div>
     <p id="semesterErrorMsg" style="color:red; text-align: center; margin-top: 15px;"></p>
+  </div>
+
+  <!-- 1.8 CHANGE PASSWORD SCREEN -->
+  <div class="container hidden" id="changePasswordScreen">
+    <h2 style="text-align: center;">Change Password</h2>
+    <input type="password" id="newPassword" placeholder="New Password">
+    <input type="password" id="confirmNewPassword" placeholder="Confirm New Password">
+    <button onclick="submitNewPassword()">Update Password</button>
+    <button class="back-btn" style="margin-top: 20px; width: 100%;" onclick="hideChangePassword()">⬅ Cancel</button>
+    <p id="changePassMsg" style="text-align: center; margin-top: 15px;"></p>
   </div>
 
   <!-- 2. COURSE MENU SCREEN -->
@@ -100,9 +129,7 @@
     <h2 style="color: #0056b3; margin-top: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 15px;">
       <span>Overall Grade: <span id="overallGrade"></span></span>
       <span style="color: #555; font-size: 0.85em; border-left: 2px solid #ccc; padding-left: 15px;">Class Rank: <strong id="classRank"></strong></span>
-      
       <span id="cohortRankContainer" style="color: #555; font-size: 0.85em; border-left: 2px solid #ccc; padding-left: 15px; display: none;">Cohort Rank: <strong id="cohortRank"></strong></span>
-      
       <span id="whatIfBadge" style="font-size: 14px; color: #d08c00; display: none;">(What-If Mode Active)</span>
     </h2>
     
@@ -130,7 +157,7 @@
 
   <script>
     // MAKE SURE YOU UPDATE THIS URL WITH YOUR NEW DEPLOYMENT LINK
-    const API_URL = "https://script.google.com/macros/s/AKfycbxt0brfk2CuESz8RHj6F5ygeAp2-UyUpqQl6_vmkukhr5ALC3eW3CebmGIxHD9kjMsyBA/exec";
+    const API_URL = "YOUR_NEW_WEB_APP_URL_HERE"; 
 
     let storedUser = "";
     let storedPass = "";
@@ -140,6 +167,103 @@
     let assignmentsList = [];
     let currentSort = { column: null, ascending: true };
 
+    // --- PASSWORD MANAGEMENT FUNCTIONS ---
+    function showForgotPassword() {
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("forgotPasswordScreen").classList.remove("hidden");
+      document.getElementById("forgotErrorMsg").innerText = "";
+    }
+
+    function hideForgotPassword() {
+      document.getElementById("forgotPasswordScreen").classList.add("hidden");
+      document.getElementById("loginScreen").classList.remove("hidden");
+    }
+
+    function requestPasswordReset() {
+      let email = document.getElementById("forgotEmail").value;
+      if (!email) {
+        document.getElementById("forgotErrorMsg").style.color = "red";
+        document.getElementById("forgotErrorMsg").innerText = "Please enter an email.";
+        return;
+      }
+
+      document.getElementById("forgotErrorMsg").style.color = "black";
+      document.getElementById("forgotErrorMsg").innerText = "Sending request...";
+
+      fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "forgotPassword", email: email })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          document.getElementById("forgotErrorMsg").style.color = "green";
+          document.getElementById("forgotErrorMsg").innerText = data.message;
+        } else {
+          document.getElementById("forgotErrorMsg").style.color = "red";
+          document.getElementById("forgotErrorMsg").innerText = data.message;
+        }
+      })
+      .catch(err => {
+        document.getElementById("forgotErrorMsg").style.color = "red";
+        document.getElementById("forgotErrorMsg").innerText = "Error connecting to server.";
+      });
+    }
+
+    function showChangePassword() {
+      document.getElementById("semesterMenu").classList.add("hidden");
+      document.getElementById("changePasswordScreen").classList.remove("hidden");
+      document.getElementById("changePassMsg").innerText = "";
+      document.getElementById("newPassword").value = "";
+      document.getElementById("confirmNewPassword").value = "";
+    }
+
+    function hideChangePassword() {
+      document.getElementById("changePasswordScreen").classList.add("hidden");
+      document.getElementById("semesterMenu").classList.remove("hidden");
+    }
+
+    function submitNewPassword() {
+      let pass1 = document.getElementById("newPassword").value;
+      let pass2 = document.getElementById("confirmNewPassword").value;
+
+      if (!pass1 || !pass2) {
+        document.getElementById("changePassMsg").style.color = "red";
+        document.getElementById("changePassMsg").innerText = "Please fill out both fields.";
+        return;
+      }
+      if (pass1 !== pass2) {
+        document.getElementById("changePassMsg").style.color = "red";
+        document.getElementById("changePassMsg").innerText = "Passwords do not match.";
+        return;
+      }
+
+      document.getElementById("changePassMsg").style.color = "black";
+      document.getElementById("changePassMsg").innerText = "Updating password...";
+
+      fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "changePassword", username: storedUser, newPassword: pass1 })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          document.getElementById("changePassMsg").style.color = "green";
+          document.getElementById("changePassMsg").innerText = "Password updated! You can now cancel and continue.";
+          storedPass = pass1; // Update stored credentials
+        } else {
+          document.getElementById("changePassMsg").style.color = "red";
+          document.getElementById("changePassMsg").innerText = data.message;
+        }
+      })
+      .catch(err => {
+        document.getElementById("changePassMsg").style.color = "red";
+        document.getElementById("changePassMsg").innerText = "Error connecting to server.";
+      });
+    }
+
+
+    // --- EXISTING NAVIGATION & GRADE FUNCTIONS ---
     function login() {
       storedUser = document.getElementById("username").value;
       storedPass = document.getElementById("password").value;
@@ -150,15 +274,12 @@
       }
       
       document.getElementById("errorMsg").innerText = "";
-      
-      // Move to semester selection
       document.getElementById("loginScreen").classList.add("hidden");
       document.getElementById("semesterMenu").classList.remove("hidden");
     }
     
     function logout() {
-      storedUser = "";
-      storedPass = "";
+      storedUser = ""; storedPass = "";
       document.getElementById("username").value = "";
       document.getElementById("password").value = "";
       document.getElementById("errorMsg").innerText = "";
@@ -180,7 +301,8 @@
 
       fetch(API_URL, {
         method: "POST",
-        body: JSON.stringify({ username: storedUser, password: storedPass, semester: sem }) 
+        // Note: added action: "login" so the updated backend processes it properly
+        body: JSON.stringify({ action: "login", username: storedUser, password: storedPass, semester: sem }) 
       })
       .then(res => res.json())
       .then(data => {
@@ -188,29 +310,24 @@
           studentData = data.data;
           
           if (studentData.courses.length === 1) {
-            // Only 1 course: Set back button to switch semesters and bypass menu
             let dashBackBtn = document.getElementById("dashBackBtn");
             dashBackBtn.innerText = "⬅ Switch Semester";
             dashBackBtn.onclick = showSemesterMenu;
             dashBackBtn.style.display = "inline-block";
-            
             loadCourse(0, true);
           } else {
-            // Multiple courses: Set back button to go back to course list and show menu
             let dashBackBtn = document.getElementById("dashBackBtn");
             dashBackBtn.innerText = "⬅ Back to Courses";
             dashBackBtn.onclick = showMenu;
             dashBackBtn.style.display = "inline-block";
-            
             showMenu();
           }
-
         } else {
           document.getElementById("semesterErrorMsg").innerText = data.message;
         }
       })
       .catch(err => {
-        document.getElementById("semesterErrorMsg").innerText = "Error connecting to the database.";
+        document.getElementById("semesterErrorMsg").innerText = "Error connecting to the database. Invalid credentials or server issue.";
       });
     }
 
@@ -218,7 +335,6 @@
       document.getElementById("semesterMenu").classList.add("hidden");
       document.getElementById("dashboard").classList.add("hidden");
       document.getElementById("courseMenu").classList.remove("hidden");
-      
       document.getElementById("welcomeName").innerText = "Welcome, " + studentData.name + " (" + studentData.semester + ")";
       
       const grid = document.getElementById("courseGrid");
@@ -235,19 +351,12 @@
 
     function loadCourse(index, bypassed) {
       activeCourse = studentData.courses[index];
-      
       assignmentsList = activeCourse.assignments.map((a, i) => {
-        let s = parseFloat(a.score);
-        let t = parseFloat(a.total);
+        let s = parseFloat(a.score); let t = parseFloat(a.total);
         let pct = (!isNaN(s) && !isNaN(t) && t !== 0) ? (s / t) * 100 : null;
         return {
-          ...a,
-          originalIndex: i,
-          hypotheticalScore: null,
-          isGraded: !isNaN(s),
-          numTotal: isNaN(t) ? 0 : t,
-          numScore: isNaN(s) ? 0 : s,
-          sortPct: pct !== null ? pct : -1
+          ...a, originalIndex: i, hypotheticalScore: null, isGraded: !isNaN(s),
+          numTotal: isNaN(t) ? 0 : t, numScore: isNaN(s) ? 0 : s, sortPct: pct !== null ? pct : -1
         };
       });
 
@@ -294,7 +403,6 @@
         currentSort.column = column;
         currentSort.ascending = true;
       }
-
       assignmentsList.sort((a, b) => {
         let valA, valB;
         if (column === 'date') { valA = parseDateForSort(a.date); valB = parseDateForSort(b.date); } 
@@ -347,8 +455,7 @@
       });
 
       let newSummaries = [];
-      let totalWeightedEarned = 0;
-      let totalWeightsUsed = 0;
+      let totalWeightedEarned = 0; let totalWeightsUsed = 0;
 
       activeCourse.categorySummaries.forEach(cat => {
         let weightRaw = parsePercent(activeCourse.weights[cat.name]) || 0;
@@ -365,9 +472,7 @@
         newSummaries.push({ name: cat.name, score: newScoreStr });
       });
 
-      if (totalWeightsUsed > 0) {
-        overallEl.innerText = ((totalWeightedEarned / totalWeightsUsed) * 100).toFixed(1) + "%";
-      }
+      if (totalWeightsUsed > 0) overallEl.innerText = ((totalWeightedEarned / totalWeightsUsed) * 100).toFixed(1) + "%";
       renderSummaries(newSummaries, true);
     }
 
@@ -381,7 +486,6 @@
         let scoreDisplay = isNaN(rawScore) ? cat.score : rawScore.toFixed(1) + "%";
         let weightRaw = parsePercent(activeCourse.weights[cat.name]);
         let convertedHTML = (!isNaN(rawScore) && !isNaN(weightRaw)) ? `<div class="converted">Converted: ${((rawScore / 100) * weightRaw).toFixed(1)} / ${weightRaw.toFixed(1)} pts</div>` : "";
-        
         let isExam = cat.name.toUpperCase().includes("MIDTERM") || cat.name.toUpperCase().includes("FINAL");
         let extraClass = isWhatIf ? "what-if-card" : "";
         
@@ -424,7 +528,6 @@
         }
 
         let classAvgStr = a.classAvg ? a.classAvg : "-";
-        
         let cohortAvgCell = activeCourse.isCohort ? `<td class="avg-col">${a.cohortAvg || "-"}</td>` : "";
 
         tbody.innerHTML += `
