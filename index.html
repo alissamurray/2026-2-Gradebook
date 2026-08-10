@@ -7,7 +7,6 @@
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #f4f7f6; color: #333; margin: 0; }
     
-    /* Added a max-width cap so it doesn't over-stretch on giant desktop screens */
     .container { width: 95%; max-width: 1300px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); box-sizing: border-box; }
     .hidden { display: none; }
     
@@ -15,11 +14,18 @@
     button { background: #0056b3; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; width: 100%; font-weight: bold; }
     button:hover { background: #004494; }
     
+    .back-btn { background: #6c757d; width: auto; padding: 8px 15px; margin-bottom: 20px; font-size: 14px; }
+    .back-btn:hover { background: #5a6268; }
+
+    /* Course Menu Grid */
+    .course-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 20px; }
+    .course-btn { background: #e9ecef; color: #0056b3; border-left: 5px solid #0056b3; font-size: 18px; padding: 25px; text-align: left; }
+    .course-btn:hover { background: #dce1e6; }
+
     /* Category Cards */
     .summary-container { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; }
-    .summary-card { background: #e9ecef; padding: 15px; border-radius: 8px; flex: 1; min-width: 150px; text-align: center; border-left: 4px solid #0056b3; transition: all 0.3s; }
+    .summary-card { background: #e9ecef; padding: 15px; border-radius: 8px; flex: 1; min-width: 150px; text-align: center; border-left: 4px solid #0056b3; }
     
-    /* Exam Cards */
     .exam-container { display: flex; flex-wrap: wrap; gap: 15px; margin: 15px 0 25px 0; }
     .summary-card.exam { background: #eef2f5; padding: 20px; border-left: 5px solid #d9534f; }
     .summary-card.exam h4 { color: #d9534f; font-size: 16px; }
@@ -30,38 +36,21 @@
     .summary-card .converted { font-size: 13px; color: #0056b3; margin-top: 6px; font-weight: 600; }
     .summary-card.exam .converted { color: #d9534f; font-size: 14px; }
 
-    /* What-If Mode Highlights */
     .what-if-mode { color: #d08c00 !important; }
     .what-if-card { background: #fff8e1 !important; border-left-color: #d08c00 !important; }
-    .what-if-card .converted { color: #d08c00 !important; }
     .whatif-input { width: 70px; padding: 6px; border: 2px solid #0056b3; border-radius: 4px; font-weight: bold; text-align: center; }
 
-    /* Table Fixes, Alignment, and Tighter Padding */
     .table-container { overflow-x: auto; margin-top: 20px; border-radius: 5px; border: 1px solid #ddd; width: 100%; }
     table { width: 100%; border-collapse: collapse; }
-    
-    /* Reduced horizontal padding from 12px to 8px to reduce empty space buffer */
     th, td { padding: 10px 8px; border-bottom: 1px solid #ddd; text-align: left; white-space: nowrap; }
-    th { background: #f8f9fa; font-weight: bold; color: #444; }
-    th.sortable { cursor: pointer; }
-    th.sortable:hover { background: #e2e6ea; }
+    th { background: #f8f9fa; font-weight: bold; color: #444; cursor: pointer; }
+    th:hover { background: #e2e6ea; }
     tr:hover { background-color: #f1f5f9; }
     .avg-col { color: #666; font-style: italic; }
     
-    /* Target specific columns for centering (Date, Score, Max Pts, Pct, Averages) */
-    th:nth-child(1), td:nth-child(1),
-    th:nth-child(4), td:nth-child(4),
-    th:nth-child(5), td:nth-child(5),
-    th:nth-child(6), td:nth-child(6),
-    th:nth-child(7), td:nth-child(7),
-    th:nth-child(8), td:nth-child(8) {
-      text-align: center;
-    }
-
-    /* Allow assignment names to wrap nicely */
+    th:nth-child(1), td:nth-child(1), th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5), th:nth-child(6), td:nth-child(6), th:nth-child(7), td:nth-child(7) { text-align: center; }
     td:nth-child(2) { white-space: normal; min-width: 150px; }
 
-    /* MOBILE RESPONSIVENESS */
     @media (max-width: 768px) {
       body { padding: 10px; }
       .container { width: 100%; max-width: 100%; padding: 15px; }
@@ -74,19 +63,30 @@
 </head>
 <body>
 
+  <!-- 1. LOGIN SCREEN -->
   <div class="container" id="loginScreen">
     <h2 style="text-align: center;">Student Portal Login</h2>
-    <input type="text" id="username" placeholder="Username">
+    <input type="text" id="username" placeholder="School Email">
     <input type="password" id="password" placeholder="Password">
     <button onclick="login()">Login</button>
     <p id="errorMsg" style="color:red; text-align: center; margin-top: 15px;"></p>
   </div>
 
+  <!-- 2. COURSE MENU SCREEN -->
+  <div class="container hidden" id="courseMenu">
+    <h1 id="welcomeName"></h1>
+    <h3 style="color: #555;">Select a Course:</h3>
+    <div class="course-grid" id="courseGrid"></div>
+  </div>
+
+  <!-- 3. DASHBOARD SCREEN -->
   <div class="container hidden" id="dashboard">
-    <h1 id="studentName" style="margin-bottom: 5px;"></h1>
+    <button class="back-btn" onclick="showMenu()">⬅ Back to Courses</button>
+    
+    <h1 id="dashboardCourseName" style="margin-bottom: 5px;"></h1>
     <h2 style="color: #0056b3; margin-top: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 15px;">
       <span>Overall Grade: <span id="overallGrade"></span></span>
-      <span style="color: #555; font-size: 0.85em; border-left: 2px solid #ccc; padding-left: 15px;">Cohort Rank: <strong id="cohortRank"></strong></span>
+      <span style="color: #555; font-size: 0.85em; border-left: 2px solid #ccc; padding-left: 15px;">Class Rank: <strong id="classRank"></strong></span>
       <span id="whatIfBadge" style="font-size: 14px; color: #d08c00; display: none;">(What-If Mode Active)</span>
     </h2>
     
@@ -97,14 +97,13 @@
       <table id="assignmentsTable">
         <thead>
           <tr>
-            <th class="sortable" onclick="sortTable('date')">Date ↕</th>
-            <th class="sortable" onclick="sortTable('name')">Assignment Name ↕</th>
-            <th class="sortable" onclick="sortTable('category')">Category ↕</th>
+            <th onclick="sortTable('date')">Date ↕</th>
+            <th onclick="sortTable('name')">Assignment Name ↕</th>
+            <th onclick="sortTable('category')">Category ↕</th>
             <th>Score</th>
             <th>Max Pts</th>
-            <th class="sortable" onclick="sortTable('percentage')">Percentage ↕</th>
+            <th onclick="sortTable('percentage')">Percentage ↕</th>
             <th>Class Avg</th>
-            <th>Cohort Avg</th>
           </tr>
         </thead>
         <tbody id="assignmentsBody"></tbody>
@@ -115,14 +114,15 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbxt0brfk2CuESz8RHj6F5ygeAp2-UyUpqQl6_vmkukhr5ALC3eW3CebmGIxHD9kjMsyBA/exec";
 
-    let globalData = {};
+    let studentData = {};
+    let activeCourse = null;
     let assignmentsList = [];
     let currentSort = { column: null, ascending: true };
 
     function login() {
       const u = document.getElementById("username").value;
       const p = document.getElementById("password").value;
-      document.getElementById("errorMsg").innerText = "Logging in...";
+      document.getElementById("errorMsg").innerText = "Loading grades... (This may take a few seconds)";
 
       fetch(API_URL, {
         method: "POST",
@@ -131,24 +131,8 @@
       .then(res => res.json())
       .then(data => {
         if (data.status === "success") {
-          globalData = data.data;
-          
-          assignmentsList = globalData.assignments.map((a, index) => {
-            let s = parseFloat(a.score);
-            let t = parseFloat(a.total);
-            let pct = (!isNaN(s) && !isNaN(t) && t !== 0) ? (s / t) * 100 : null;
-            return {
-              ...a,
-              originalIndex: index,
-              hypotheticalScore: null,
-              isGraded: !isNaN(s),
-              numTotal: isNaN(t) ? 0 : t,
-              numScore: isNaN(s) ? 0 : s,
-              sortPct: pct !== null ? pct : -1
-            };
-          });
-
-          showDashboard();
+          studentData = data.data;
+          showMenu();
         } else {
           document.getElementById("errorMsg").innerText = data.message;
         }
@@ -158,6 +142,53 @@
       });
     }
 
+    function showMenu() {
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("dashboard").classList.add("hidden");
+      document.getElementById("courseMenu").classList.remove("hidden");
+      
+      document.getElementById("welcomeName").innerText = "Welcome, " + studentData.name;
+      
+      const grid = document.getElementById("courseGrid");
+      grid.innerHTML = "";
+      
+      studentData.courses.forEach((course, index) => {
+        let btn = document.createElement("button");
+        btn.className = "course-btn";
+        btn.innerText = course.name;
+        btn.onclick = () => loadCourse(index);
+        grid.appendChild(btn);
+      });
+    }
+
+    function loadCourse(index) {
+      activeCourse = studentData.courses[index];
+      
+      assignmentsList = activeCourse.assignments.map((a, i) => {
+        let s = parseFloat(a.score);
+        let t = parseFloat(a.total);
+        let pct = (!isNaN(s) && !isNaN(t) && t !== 0) ? (s / t) * 100 : null;
+        return {
+          ...a,
+          originalIndex: i,
+          hypotheticalScore: null,
+          isGraded: !isNaN(s),
+          numTotal: isNaN(t) ? 0 : t,
+          numScore: isNaN(s) ? 0 : s,
+          sortPct: pct !== null ? pct : -1
+        };
+      });
+
+      document.getElementById("courseMenu").classList.add("hidden");
+      document.getElementById("dashboard").classList.remove("hidden");
+      
+      document.getElementById("dashboardCourseName").innerText = activeCourse.name;
+      document.getElementById("classRank").innerText = activeCourse.classRank || "N/A";
+      
+      recalculateGrades();
+      renderTable();
+    }
+
     function parsePercent(val) {
       let n = parseFloat(val);
       if (isNaN(n)) return NaN;
@@ -165,7 +196,6 @@
       return n;
     }
 
-    // Updated to handle MM/DD/YYYY numeric sorting properly
     function parseDateForSort(dateStr) {
       if (!dateStr || dateStr === "-") return 0;
       let parts = dateStr.split('/');
@@ -185,50 +215,35 @@
 
       assignmentsList.sort((a, b) => {
         let valA, valB;
-        if (column === 'date') {
-          valA = parseDateForSort(a.date);
-          valB = parseDateForSort(b.date);
-        } else if (column === 'name') {
-          valA = a.name.toLowerCase();
-          valB = b.name.toLowerCase();
-        } else if (column === 'category') {
-          valA = a.category.toLowerCase();
-          valB = b.category.toLowerCase();
-        } else if (column === 'percentage') {
-          valA = a.sortPct;
-          valB = b.sortPct;
-        }
+        if (column === 'date') { valA = parseDateForSort(a.date); valB = parseDateForSort(b.date); } 
+        else if (column === 'name') { valA = a.name.toLowerCase(); valB = b.name.toLowerCase(); } 
+        else if (column === 'category') { valA = a.category.toLowerCase(); valB = b.category.toLowerCase(); } 
+        else if (column === 'percentage') { valA = a.sortPct; valB = b.sortPct; }
 
         if (valA < valB) return currentSort.ascending ? -1 : 1;
         if (valA > valB) return currentSort.ascending ? 1 : -1;
         return 0;
       });
-
       renderTable();
     }
 
     function updateHypothetical(index, value) {
       let assignment = assignmentsList.find(a => a.originalIndex === index);
-      if (value === "") {
-        assignment.hypotheticalScore = null;
-      } else {
-        assignment.hypotheticalScore = parseFloat(value);
-      }
+      assignment.hypotheticalScore = (value === "") ? null : parseFloat(value);
       recalculateGrades();
     }
 
     function recalculateGrades() {
       let isWhatIfActive = assignmentsList.some(a => a.hypotheticalScore !== null);
-      
       const overallEl = document.getElementById("overallGrade");
       const badgeEl = document.getElementById("whatIfBadge");
 
       if (!isWhatIfActive) {
         overallEl.classList.remove("what-if-mode");
         badgeEl.style.display = "none";
-        let gradeNum = parsePercent(globalData.overallGrade);
-        overallEl.innerText = isNaN(gradeNum) ? globalData.overallGrade : gradeNum.toFixed(1) + "%";
-        renderSummaries(globalData.categorySummaries, false);
+        let gradeNum = parsePercent(activeCourse.overallGrade);
+        overallEl.innerText = isNaN(gradeNum) ? activeCourse.overallGrade : gradeNum.toFixed(1) + "%";
+        renderSummaries(activeCourse.categorySummaries, false);
         return;
       }
 
@@ -236,15 +251,10 @@
       badgeEl.style.display = "inline";
 
       let categoryTotals = {};
-      Object.keys(globalData.weights).forEach(cat => {
-        categoryTotals[cat] = { earned: 0, possible: 0 };
-      });
+      Object.keys(activeCourse.weights).forEach(cat => { categoryTotals[cat] = { earned: 0, possible: 0 }; });
 
       assignmentsList.forEach(a => {
-        if (!categoryTotals[a.category]) {
-          categoryTotals[a.category] = { earned: 0, possible: 0 };
-        }
-
+        if (!categoryTotals[a.category]) categoryTotals[a.category] = { earned: 0, possible: 0 };
         if (a.isGraded) {
           categoryTotals[a.category].earned += a.numScore;
           categoryTotals[a.category].possible += a.numTotal;
@@ -258,53 +268,38 @@
       let totalWeightedEarned = 0;
       let totalWeightsUsed = 0;
 
-      globalData.categorySummaries.forEach(cat => {
-        let weightRaw = parsePercent(globalData.weights[cat.name]) || 0;
+      activeCourse.categorySummaries.forEach(cat => {
+        let weightRaw = parsePercent(activeCourse.weights[cat.name]) || 0;
         let earned = categoryTotals[cat.name] ? categoryTotals[cat.name].earned : 0;
         let possible = categoryTotals[cat.name] ? categoryTotals[cat.name].possible : 0;
         
         let newScoreStr = cat.score; 
-        
         if (possible > 0) {
           let catPct = (earned / possible) * 100;
           newScoreStr = catPct.toFixed(1) + "%";
-          
           totalWeightedEarned += (catPct / 100) * weightRaw;
           totalWeightsUsed += weightRaw;
         }
-
-        newSummaries.push({
-          name: cat.name,
-          score: newScoreStr
-        });
+        newSummaries.push({ name: cat.name, score: newScoreStr });
       });
 
       if (totalWeightsUsed > 0) {
-        let newOverall = (totalWeightedEarned / totalWeightsUsed) * 100;
-        overallEl.innerText = newOverall.toFixed(1) + "%";
+        overallEl.innerText = ((totalWeightedEarned / totalWeightsUsed) * 100).toFixed(1) + "%";
       }
-
       renderSummaries(newSummaries, true);
     }
 
     function renderSummaries(summaries, isWhatIf) {
       const catDiv = document.getElementById("categorySummaries");
       const examDiv = document.getElementById("examSummaries");
-      catDiv.innerHTML = "";
-      examDiv.innerHTML = "";
+      catDiv.innerHTML = ""; examDiv.innerHTML = "";
 
       summaries.forEach(cat => {
         let rawScore = parsePercent(cat.score);
         let scoreDisplay = isNaN(rawScore) ? cat.score : rawScore.toFixed(1) + "%";
+        let weightRaw = parsePercent(activeCourse.weights[cat.name]);
+        let convertedHTML = (!isNaN(rawScore) && !isNaN(weightRaw)) ? `<div class="converted">Converted: ${((rawScore / 100) * weightRaw).toFixed(1)} / ${weightRaw.toFixed(1)} pts</div>` : "";
         
-        let weightRaw = parsePercent(globalData.weights[cat.name]);
-        let convertedHTML = "";
-        
-        if (!isNaN(rawScore) && !isNaN(weightRaw)) {
-          let convertedPoints = (rawScore / 100) * weightRaw;
-          convertedHTML = `<div class="converted">Converted: ${convertedPoints.toFixed(1)} / ${weightRaw.toFixed(1)} pts</div>`;
-        }
-
         let isExam = cat.name.toUpperCase().includes("MIDTERM") || cat.name.toUpperCase().includes("FINAL");
         let extraClass = isWhatIf ? "what-if-card" : "";
         
@@ -315,12 +310,8 @@
             ${convertedHTML}
           </div>
         `;
-
-        if (isExam) {
-          examDiv.innerHTML += cardHTML;
-        } else {
-          catDiv.innerHTML += cardHTML;
-        }
+        if (isExam) examDiv.innerHTML += cardHTML;
+        else catDiv.innerHTML += cardHTML;
       });
     }
 
@@ -330,36 +321,27 @@
 
       assignmentsList.forEach(a => {
         let pctStr = "-";
-        
         let scoreCellHTML = "";
+        
         if (a.isGraded) {
           scoreCellHTML = a.score;
-          if (a.numTotal !== 0) {
-            pctStr = ((a.numScore / a.numTotal) * 100).toFixed(1) + "%";
-          }
+          if (a.numTotal !== 0) pctStr = ((a.numScore / a.numTotal) * 100).toFixed(1) + "%";
         } else {
           let val = a.hypotheticalScore !== null ? a.hypotheticalScore : "";
           scoreCellHTML = `<input type="number" class="whatif-input" value="${val}" placeholder="?" oninput="updateHypothetical(${a.originalIndex}, this.value)">`;
-          
           if (a.hypotheticalScore !== null && a.numTotal !== 0) {
             pctStr = `<span class="what-if-mode">${((a.hypotheticalScore / a.numTotal) * 100).toFixed(1)}%</span>`;
           }
         }
 
-        // Swapped date parsing logic from DD/MM/YYYY to MM/DD/YYYY format
         let formattedDate = "-";
         if (a.date && a.date !== "-") {
           let parts = a.date.split('/');
-          if (parts.length === 3) {
-            // Converts incoming structural data parts to MM/DD/YYYY format
-            formattedDate = parts[1] + "/" + parts[0] + "/" + parts[2];
-          } else {
-            formattedDate = a.date;
-          }
+          if (parts.length === 3) formattedDate = parts[0] + "/" + parts[1] + "/" + parts[2];
+          else formattedDate = a.date;
         }
 
         let classAvgStr = a.classAvg ? a.classAvg : "-";
-        let cohortAvgStr = a.cohortAvg ? a.cohortAvg : "-";
 
         tbody.innerHTML += `
           <tr>
@@ -370,21 +352,9 @@
             <td>${a.total}</td>
             <td><strong>${pctStr}</strong></td>
             <td class="avg-col">${classAvgStr}</td>
-            <td class="avg-col">${cohortAvgStr}</td>
           </tr>
         `;
       });
-    }
-
-    function showDashboard() {
-      document.getElementById("loginScreen").classList.add("hidden");
-      document.getElementById("dashboard").classList.remove("hidden");
-      
-      document.getElementById("studentName").innerText = globalData.name;
-      document.getElementById("cohortRank").innerText = globalData.cohortRank || "N/A";
-      
-      recalculateGrades();
-      renderTable();
     }
   </script>
 </body>
