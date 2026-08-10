@@ -10,7 +10,8 @@
     .container { width: 95%; max-width: 1300px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); box-sizing: border-box; }
     .hidden { display: none; }
     
-    input[type="text"], input[type="password"] { display: block; width: 100%; margin: 15px 0; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; }
+    /* Updated to include select styling */
+    input[type="text"], input[type="password"], select { display: block; width: 100%; margin: 15px 0; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; background: white; }
     button { background: #0056b3; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; width: 100%; font-weight: bold; }
     button:hover { background: #004494; }
     
@@ -63,11 +64,17 @@
 </head>
 <body>
 
-  <!-- 1. LOGIN SCREEN -->
+  <!-- 1. LOGIN SCREEN (Now with Semester Dropdown) -->
   <div class="container" id="loginScreen">
     <h2 style="text-align: center;">Student Portal Login</h2>
     <input type="text" id="username" placeholder="School Email">
     <input type="password" id="password" placeholder="Password">
+    
+    <select id="semesterSelect">
+      <option value="1st Semester">1st Semester</option>
+      <option value="2nd Semester">2nd Semester</option>
+    </select>
+
     <button onclick="login()">Login</button>
     <p id="errorMsg" style="color:red; text-align: center; margin-top: 15px;"></p>
   </div>
@@ -88,7 +95,6 @@
       <span>Overall Grade: <span id="overallGrade"></span></span>
       <span style="color: #555; font-size: 0.85em; border-left: 2px solid #ccc; padding-left: 15px;">Class Rank: <strong id="classRank"></strong></span>
       
-      <!-- Hidden by default, unhides via JS if it's a Cohort -->
       <span id="cohortRankContainer" style="color: #555; font-size: 0.85em; border-left: 2px solid #ccc; padding-left: 15px; display: none;">Cohort Rank: <strong id="cohortRank"></strong></span>
       
       <span id="whatIfBadge" style="font-size: 14px; color: #d08c00; display: none;">(What-If Mode Active)</span>
@@ -128,11 +134,13 @@
     function login() {
       const u = document.getElementById("username").value;
       const p = document.getElementById("password").value;
+      const sem = document.getElementById("semesterSelect").value; // Grabs the selected semester
+      
       document.getElementById("errorMsg").innerText = "Loading grades... (This may take a few seconds)";
 
       fetch(API_URL, {
         method: "POST",
-        body: JSON.stringify({ username: u, password: p })
+        body: JSON.stringify({ username: u, password: p, semester: sem }) // Sends the semester to the backend
       })
       .then(res => res.json())
       .then(data => {
@@ -153,7 +161,8 @@
       document.getElementById("dashboard").classList.add("hidden");
       document.getElementById("courseMenu").classList.remove("hidden");
       
-      document.getElementById("welcomeName").innerText = "Welcome, " + studentData.name;
+      // Add the semester label next to the welcome name
+      document.getElementById("welcomeName").innerText = "Welcome, " + studentData.name + " (" + studentData.semester + ")";
       
       const grid = document.getElementById("courseGrid");
       grid.innerHTML = "";
@@ -191,7 +200,6 @@
       document.getElementById("dashboardCourseName").innerText = activeCourse.name;
       document.getElementById("classRank").innerText = activeCourse.classRank || "N/A";
       
-      // Conditionally show Cohort Info if this class has multiple sections
       if (activeCourse.isCohort) {
         document.getElementById("cohortRankContainer").style.display = "inline";
         document.getElementById("cohortRank").innerText = activeCourse.cohortRank || "N/A";
@@ -359,7 +367,6 @@
 
         let classAvgStr = a.classAvg ? a.classAvg : "-";
         
-        // Only render Cohort Avg TD if this is a cohort
         let cohortAvgCell = activeCourse.isCohort ? `<td class="avg-col">${a.cohortAvg || "-"}</td>` : "";
 
         tbody.innerHTML += `
