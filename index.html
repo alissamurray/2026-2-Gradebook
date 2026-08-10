@@ -48,7 +48,7 @@
     tr:hover { background-color: #f1f5f9; }
     .avg-col { color: #666; font-style: italic; }
     
-    th:nth-child(1), td:nth-child(1), th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5), th:nth-child(6), td:nth-child(6), th:nth-child(7), td:nth-child(7) { text-align: center; }
+    th:nth-child(1), td:nth-child(1), th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5), th:nth-child(6), td:nth-child(6), th:nth-child(7), td:nth-child(7), th:nth-child(8), td:nth-child(8) { text-align: center; }
     td:nth-child(2) { white-space: normal; min-width: 150px; }
 
     @media (max-width: 768px) {
@@ -87,6 +87,10 @@
     <h2 style="color: #0056b3; margin-top: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 15px;">
       <span>Overall Grade: <span id="overallGrade"></span></span>
       <span style="color: #555; font-size: 0.85em; border-left: 2px solid #ccc; padding-left: 15px;">Class Rank: <strong id="classRank"></strong></span>
+      
+      <!-- Hidden by default, unhides via JS if it's a Cohort -->
+      <span id="cohortRankContainer" style="color: #555; font-size: 0.85em; border-left: 2px solid #ccc; padding-left: 15px; display: none;">Cohort Rank: <strong id="cohortRank"></strong></span>
+      
       <span id="whatIfBadge" style="font-size: 14px; color: #d08c00; display: none;">(What-If Mode Active)</span>
     </h2>
     
@@ -104,6 +108,7 @@
             <th>Max Pts</th>
             <th onclick="sortTable('percentage')">Percentage ↕</th>
             <th>Class Avg</th>
+            <th id="thCohortAvg">Cohort Avg</th>
           </tr>
         </thead>
         <tbody id="assignmentsBody"></tbody>
@@ -112,6 +117,7 @@
   </div>
 
   <script>
+    // MAKE SURE YOU UPDATE THIS URL WITH YOUR NEW DEPLOYMENT LINK
     const API_URL = "https://script.google.com/macros/s/AKfycbxt0brfk2CuESz8RHj6F5ygeAp2-UyUpqQl6_vmkukhr5ALC3eW3CebmGIxHD9kjMsyBA/exec";
 
     let studentData = {};
@@ -184,6 +190,16 @@
       
       document.getElementById("dashboardCourseName").innerText = activeCourse.name;
       document.getElementById("classRank").innerText = activeCourse.classRank || "N/A";
+      
+      // Conditionally show Cohort Info if this class has multiple sections
+      if (activeCourse.isCohort) {
+        document.getElementById("cohortRankContainer").style.display = "inline";
+        document.getElementById("cohortRank").innerText = activeCourse.cohortRank || "N/A";
+        document.getElementById("thCohortAvg").style.display = "table-cell";
+      } else {
+        document.getElementById("cohortRankContainer").style.display = "none";
+        document.getElementById("thCohortAvg").style.display = "none";
+      }
       
       recalculateGrades();
       renderTable();
@@ -342,6 +358,9 @@
         }
 
         let classAvgStr = a.classAvg ? a.classAvg : "-";
+        
+        // Only render Cohort Avg TD if this is a cohort
+        let cohortAvgCell = activeCourse.isCohort ? `<td class="avg-col">${a.cohortAvg || "-"}</td>` : "";
 
         tbody.innerHTML += `
           <tr>
@@ -352,6 +371,7 @@
             <td>${a.total}</td>
             <td><strong>${pctStr}</strong></td>
             <td class="avg-col">${classAvgStr}</td>
+            ${cohortAvgCell}
           </tr>
         `;
       });
