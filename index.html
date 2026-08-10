@@ -10,7 +10,7 @@
     .container { width: 95%; max-width: 1300px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); box-sizing: border-box; }
     .hidden { display: none; }
     
-    input[type="text"], input[type="password"], select { display: block; width: 100%; margin: 15px 0; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; background: white; }
+    input[type="text"], input[type="password"] { display: block; width: 100%; margin: 15px 0; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; background: white; }
     button { background: #0056b3; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; width: 100%; font-weight: bold; }
     button:hover { background: #004494; }
     
@@ -69,17 +69,24 @@
     <input type="text" id="username" placeholder="School Email">
     <input type="password" id="password" placeholder="Password">
     
-    <select id="semesterSelect">
-      <option value="1st Semester">1st Semester</option>
-      <option value="2nd Semester">2nd Semester</option>
-    </select>
-
-    <button onclick="login()">Login</button>
+    <button onclick="login()">Next</button>
     <p id="errorMsg" style="color:red; text-align: center; margin-top: 15px;"></p>
+  </div>
+
+  <!-- 1.5. SEMESTER SELECTION SCREEN -->
+  <div class="container hidden" id="semesterMenu">
+    <button class="back-btn" onclick="logout()">⬅ Logout</button>
+    <h2 style="text-align: center;">Select Semester</h2>
+    <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
+      <button onclick="fetchGrades('1st Semester')">1st Semester</button>
+      <button onclick="fetchGrades('2nd Semester')">2nd Semester</button>
+    </div>
+    <p id="semesterErrorMsg" style="color:red; text-align: center; margin-top: 15px;"></p>
   </div>
 
   <!-- 2. COURSE MENU SCREEN -->
   <div class="container hidden" id="courseMenu">
+    <button class="back-btn" onclick="showSemesterMenu()">⬅ Switch Semester</button>
     <h1 id="welcomeName"></h1>
     <h3 style="color: #555;">Select a Course:</h3>
     <div class="course-grid" id="courseGrid"></div>
@@ -87,7 +94,7 @@
 
   <!-- 3. DASHBOARD SCREEN -->
   <div class="container hidden" id="dashboard">
-    <button class="back-btn" onclick="showMenu()">⬅ Back to Courses</button>
+    <button class="back-btn" id="dashBackBtn">⬅ Back</button>
     
     <h1 id="dashboardCourseName" style="margin-bottom: 5px;"></h1>
     <h2 style="color: #0056b3; margin-top: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 15px;">
@@ -125,51 +132,90 @@
     // MAKE SURE YOU UPDATE THIS URL WITH YOUR NEW DEPLOYMENT LINK
     const API_URL = "https://script.google.com/macros/s/AKfycbxt0brfk2CuESz8RHj6F5ygeAp2-UyUpqQl6_vmkukhr5ALC3eW3CebmGIxHD9kjMsyBA/exec";
 
+    let storedUser = "";
+    let storedPass = "";
+    
     let studentData = {};
     let activeCourse = null;
     let assignmentsList = [];
     let currentSort = { column: null, ascending: true };
 
     function login() {
-      const u = document.getElementById("username").value;
-      const p = document.getElementById("password").value;
-      const sem = document.getElementById("semesterSelect").value; 
+      storedUser = document.getElementById("username").value;
+      storedPass = document.getElementById("password").value;
       
-      document.getElementById("errorMsg").innerText = "Loading grades... (This may take a few seconds)";
+      if (!storedUser || !storedPass) {
+        document.getElementById("errorMsg").innerText = "Please enter both email and password.";
+        return;
+      }
+      
+      document.getElementById("errorMsg").innerText = "";
+      
+      // Move to semester selection
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("semesterMenu").classList.remove("hidden");
+    }
+    
+    function logout() {
+      storedUser = "";
+      storedPass = "";
+      document.getElementById("username").value = "";
+      document.getElementById("password").value = "";
+      document.getElementById("errorMsg").innerText = "";
+      document.getElementById("semesterErrorMsg").innerText = "";
+      
+      document.getElementById("semesterMenu").classList.add("hidden");
+      document.getElementById("loginScreen").classList.remove("hidden");
+    }
+
+    function showSemesterMenu() {
+      document.getElementById("courseMenu").classList.add("hidden");
+      document.getElementById("dashboard").classList.add("hidden");
+      document.getElementById("semesterMenu").classList.remove("hidden");
+      document.getElementById("semesterErrorMsg").innerText = "";
+    }
+
+    function fetchGrades(sem) {
+      document.getElementById("semesterErrorMsg").innerText = "Loading grades... (This may take a few seconds)";
 
       fetch(API_URL, {
         method: "POST",
-        body: JSON.stringify({ username: u, password: p, semester: sem }) 
+        body: JSON.stringify({ username: storedUser, password: storedPass, semester: sem }) 
       })
       .then(res => res.json())
       .then(data => {
         if (data.status === "success") {
           studentData = data.data;
           
-          // NEW: Check if the student only has 1 course
           if (studentData.courses.length === 1) {
-            // Hide the "Back to Courses" button because there is no menu to return to
-            document.querySelector(".back-btn").style.display = "none";
-            // Directly load the dashboard for their single course
-            loadCourse(0);
+            // Only 1 course: Set back button to switch semesters and bypass menu
+            let dashBackBtn = document.getElementById("dashBackBtn");
+            dashBackBtn.innerText = "⬅ Switch Semester";
+            dashBackBtn.onclick = showSemesterMenu;
+            dashBackBtn.style.display = "inline-block";
+            
+            loadCourse(0, true);
           } else {
-            // Ensure the back button is visible for students with multiple courses
-            document.querySelector(".back-btn").style.display = "inline-block";
-            // Show the course selection menu
+            // Multiple courses: Set back button to go back to course list and show menu
+            let dashBackBtn = document.getElementById("dashBackBtn");
+            dashBackBtn.innerText = "⬅ Back to Courses";
+            dashBackBtn.onclick = showMenu;
+            dashBackBtn.style.display = "inline-block";
+            
             showMenu();
           }
 
         } else {
-          document.getElementById("errorMsg").innerText = data.message;
+          document.getElementById("semesterErrorMsg").innerText = data.message;
         }
       })
       .catch(err => {
-        document.getElementById("errorMsg").innerText = "Error connecting to the database.";
+        document.getElementById("semesterErrorMsg").innerText = "Error connecting to the database.";
       });
     }
 
     function showMenu() {
-      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("semesterMenu").classList.add("hidden");
       document.getElementById("dashboard").classList.add("hidden");
       document.getElementById("courseMenu").classList.remove("hidden");
       
@@ -182,12 +228,12 @@
         let btn = document.createElement("button");
         btn.className = "course-btn";
         btn.innerText = course.name;
-        btn.onclick = () => loadCourse(index);
+        btn.onclick = () => loadCourse(index, false);
         grid.appendChild(btn);
       });
     }
 
-    function loadCourse(index) {
+    function loadCourse(index, bypassed) {
       activeCourse = studentData.courses[index];
       
       assignmentsList = activeCourse.assignments.map((a, i) => {
@@ -205,11 +251,8 @@
         };
       });
 
-      // Ensure the login and menu screens are hidden
-      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("semesterMenu").classList.add("hidden");
       document.getElementById("courseMenu").classList.add("hidden");
-      
-      // Show the dashboard
       document.getElementById("dashboard").classList.remove("hidden");
       
       document.getElementById("dashboardCourseName").innerText = activeCourse.name;
