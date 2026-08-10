@@ -269,13 +269,21 @@
       storedPass = document.getElementById("password").value;
       
       if (!storedUser || !storedPass) {
+        document.getElementById("errorMsg").style.color = "red";
         document.getElementById("errorMsg").innerText = "Please enter both email and password.";
         return;
       }
       
-      document.getElementById("errorMsg").innerText = "";
-      document.getElementById("loginScreen").classList.add("hidden");
-      document.getElementById("semesterMenu").classList.remove("hidden");
+      document.getElementById("errorMsg").style.color = "#0056b3";
+      document.getElementById("errorMsg").innerText = "Logging in...";
+      
+      // Detect current month (1 = Jan, 12 = Dec)
+      let currentMonth = new Date().getMonth() + 1; 
+      
+      // March (3) through July (7) = 1st Semester; August (8) through Feb (2) = 2nd Semester
+      let defaultSemester = (currentMonth >= 3 && currentMonth <= 7) ? "1st Semester" : "2nd Semester";
+      
+      fetchGrades(defaultSemester);
     }
     
     function logout() {
@@ -297,39 +305,59 @@
     }
 
     function fetchGrades(sem) {
-      document.getElementById("semesterErrorMsg").innerText = "Loading grades... (This may take a few seconds)";
+  let isInitialLogin = !document.getElementById("loginScreen").classList.contains("hidden");
+  
+  if (!isInitialLogin) {
+    document.getElementById("semesterErrorMsg").innerText = "Loading grades... (This may take a few seconds)";
+  }
 
-      fetch(API_URL, {
-        method: "POST",
-        // Note: added action: "login" so the updated backend processes it properly
-        body: JSON.stringify({ action: "login", username: storedUser, password: storedPass, semester: sem }) 
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === "success") {
-          studentData = data.data;
-          
-          if (studentData.courses.length === 1) {
-            let dashBackBtn = document.getElementById("dashBackBtn");
-            dashBackBtn.innerText = "⬅ Switch Semester";
-            dashBackBtn.onclick = showSemesterMenu;
-            dashBackBtn.style.display = "inline-block";
-            loadCourse(0, true);
-          } else {
-            let dashBackBtn = document.getElementById("dashBackBtn");
-            dashBackBtn.innerText = "⬅ Back to Courses";
-            dashBackBtn.onclick = showMenu;
-            dashBackBtn.style.display = "inline-block";
-            showMenu();
-          }
-        } else {
-          document.getElementById("semesterErrorMsg").innerText = data.message;
-        }
-      })
-      .catch(err => {
-        document.getElementById("semesterErrorMsg").innerText = "Error connecting to the database. Invalid credentials or server issue.";
-      });
+  fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({ action: "login", username: storedUser, password: storedPass, semester: sem }) 
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === "success") {
+      studentData = data.data;
+      
+      // Hide login and semester selection screens
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("semesterMenu").classList.add("hidden");
+      document.getElementById("errorMsg").innerText = "";
+      
+      if (studentData.courses.length === 1) {
+        let dashBackBtn = document.getElementById("dashBackBtn");
+        dashBackBtn.innerText = "⬅ Switch Semester";
+        dashBackBtn.onclick = showSemesterMenu;
+        dashBackBtn.style.display = "inline-block";
+        loadCourse(0, true);
+      } else {
+        let dashBackBtn = document.getElementById("dashBackBtn");
+        dashBackBtn.innerText = "⬅ Back to Courses";
+        dashBackBtn.onclick = showMenu;
+        dashBackBtn.style.display = "inline-block";
+        showMenu();
+      }
+    } else {
+      // Display wrong password / error on the active screen
+      if (isInitialLogin) {
+        document.getElementById("errorMsg").style.color = "red";
+        document.getElementById("errorMsg").innerText = data.message;
+      } else {
+        document.getElementById("semesterErrorMsg").innerText = data.message;
+      }
     }
+  })
+  .catch(err => {
+    let msg = "Error connecting to server. Invalid credentials or connection issue.";
+    if (isInitialLogin) {
+      document.getElementById("errorMsg").style.color = "red";
+      document.getElementById("errorMsg").innerText = msg;
+    } else {
+      document.getElementById("semesterErrorMsg").innerText = msg;
+    }
+  });
+}
 
     function showMenu() {
       document.getElementById("semesterMenu").classList.add("hidden");
