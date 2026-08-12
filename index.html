@@ -552,6 +552,11 @@
       tbody.innerHTML = "";
 
       assignmentsList.forEach(a => {
+        // Guardrail: Fallback if total points is 0, missing, or blank in Row 6
+        if (!a.numTotal || isNaN(a.numTotal) || a.numTotal <= 0) {
+          a.numTotal = 100;
+        }
+      
         let pctStr = "-";
         let scoreCellHTML = "";
         
