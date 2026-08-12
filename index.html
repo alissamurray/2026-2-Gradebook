@@ -315,12 +315,22 @@
     method: "POST",
     body: JSON.stringify({ action: "login", username: storedUser, password: storedPass, semester: sem }) 
   })
-  .then(res => res.json())
+  .then(async res => {
+    // 1. Capture the raw text response before attempting to parse as JSON
+    const rawText = await res.text();
+    
+    try {
+      return JSON.parse(rawText);
+    } catch (parseErr) {
+      // 2. Log raw HTML server error pages directly to the browser console
+      console.error("RAW SERVER RESPONSE (NON-JSON):", rawText);
+      throw new Error("Server returned non-JSON response. Check Developer Console (F12) for raw details.");
+    }
+  })
   .then(data => {
     if (data.status === "success") {
       studentData = data.data;
       
-      // Hide login and semester selection screens
       document.getElementById("loginScreen").classList.add("hidden");
       document.getElementById("semesterMenu").classList.add("hidden");
       document.getElementById("errorMsg").innerText = "";
@@ -339,17 +349,25 @@
         showMenu();
       }
     } else {
-      // Display wrong password / error on the active screen
+      // 3. Print extended error info if available
+      let errorDetails = data.message;
+      if (data.stack) {
+        console.error("BACKEND STACK TRACE:\n", data.stack);
+        errorDetails += " (Check Console for Stack Trace)";
+      }
+      
       if (isInitialLogin) {
         document.getElementById("errorMsg").style.color = "red";
-        document.getElementById("errorMsg").innerText = data.message;
+        document.getElementById("errorMsg").innerText = errorDetails;
       } else {
-        document.getElementById("semesterErrorMsg").innerText = data.message;
+        document.getElementById("semesterErrorMsg").innerText = errorDetails;
       }
     }
   })
   .catch(err => {
-    let msg = "Error connecting to server. Invalid credentials or connection issue.";
+    console.error("FETCH / CONNECTION ERROR:", err);
+    let msg = err.message || "Error connecting to server.";
+    
     if (isInitialLogin) {
       document.getElementById("errorMsg").style.color = "red";
       document.getElementById("errorMsg").innerText = msg;
