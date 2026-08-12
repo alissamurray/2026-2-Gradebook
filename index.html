@@ -265,7 +265,7 @@
 
     // --- EXISTING NAVIGATION & GRADE FUNCTIONS ---
     function login() {
-      storedUser = document.getElementById("username").value;
+      storedUser = document.getElementById("username").value.trim().toLowerCase();
       storedPass = document.getElementById("password").value;
       
       if (!storedUser || !storedPass) {
