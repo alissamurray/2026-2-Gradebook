@@ -72,7 +72,7 @@
     <input type="text" id="username" placeholder="School Email">
     <input type="password" id="password" placeholder="Password">
     
-    <button onclick="login()">Next</button>
+    <button id="loginButton" onclick="login()">Next</button>
     <div style="text-align: center;">
       <button class="link-btn" onclick="showForgotPassword()">Forgot Password?</button>
     </div>
@@ -119,6 +119,7 @@
     <h1 id="welcomeName"></h1>
     <h3 style="color: #555;">Select a Course:</h3>
     <div class="course-grid" id="courseGrid"></div>
+    <p id="courseErrorMsg" style="color:red; text-align:center; margin-top:15px;"></p>
   </div>
 
   <!-- 3. DASHBOARD SCREEN -->
@@ -237,13 +238,23 @@
         document.getElementById("changePassMsg").innerText = "Passwords do not match.";
         return;
       }
+      if (pass1.length < 6) {
+        document.getElementById("changePassMsg").style.color = "red";
+        document.getElementById("changePassMsg").innerText = "Password must contain at least 6 characters.";
+        return;
+      }
 
       document.getElementById("changePassMsg").style.color = "black";
       document.getElementById("changePassMsg").innerText = "Updating password...";
 
       fetch(API_URL, {
         method: "POST",
-        body: JSON.stringify({ action: "changePassword", username: storedUser, newPassword: pass1 })
+        body: JSON.stringify({
+          action: "changePassword",
+          username: storedUser,
+          currentPassword: storedPass,
+          newPassword: pass1
+        })
       })
       .then(res => res.json())
       .then(data => {
@@ -288,6 +299,9 @@
     
     function logout() {
       storedUser = ""; storedPass = "";
+      studentData = {};
+      activeCourse = null;
+      courseResponseCache = {};
       document.getElementById("username").value = "";
       document.getElementById("password").value = "";
       document.getElementById("errorMsg").innerText = "";
@@ -304,7 +318,9 @@
       document.getElementById("semesterErrorMsg").innerText = "";
     }
 
-    function fetchGrades(sem) {
+    // Retained from the previous version for reference; the optimized
+    // fetchGrades implementation near the bottom is the active one.
+    function fetchGradesLegacy_(sem) {
   let isInitialLogin = !document.getElementById("loginScreen").classList.contains("hidden");
   
   if (!isInitialLogin) {
@@ -382,6 +398,7 @@
       document.getElementById("dashboard").classList.add("hidden");
       document.getElementById("courseMenu").classList.remove("hidden");
       document.getElementById("welcomeName").innerText = "Welcome, " + studentData.name + " (" + studentData.semester + ")";
+      document.getElementById("courseErrorMsg").innerText = "";
       
       const grid = document.getElementById("courseGrid");
       grid.innerHTML = "";
@@ -395,7 +412,9 @@
       });
     }
 
-    function loadCourse(index, bypassed) {
+    // Retained from the previous version for reference; the optimized
+    // loadCourse implementation near the bottom is the active one.
+    function loadCourseLegacy_(index, bypassed) {
       activeCourse = studentData.courses[index];
       assignmentsList = activeCourse.assignments.map((a, i) => {
         let s = parseFloat(a.score); let t = parseFloat(a.total);
@@ -522,6 +541,16 @@
       renderSummaries(newSummaries, true);
     }
 
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#039;"
+      })[character]);
+    }
+
     function renderSummaries(summaries, isWhatIf) {
       const catDiv = document.getElementById("categorySummaries");
       const examDiv = document.getElementById("examSummaries");
@@ -537,8 +566,8 @@
         
         let cardHTML = `
           <div class="summary-card ${isExam ? 'exam' : ''} ${extraClass}">
-            <h4>${cat.name}</h4>
-            <div class="score">${scoreDisplay}</div>
+            <h4>${escapeHtml(cat.name)}</h4>
+            <div class="score">${escapeHtml(scoreDisplay)}</div>
             ${convertedHTML}
           </div>
         `;
@@ -561,7 +590,7 @@
         let scoreCellHTML = "";
         
         if (a.isGraded) {
-          scoreCellHTML = a.score;
+          scoreCellHTML = escapeHtml(a.score);
           if (a.numTotal !== 0) pctStr = ((a.numScore / a.numTotal) * 100).toFixed(1) + "%";
         } else {
           let val = a.hypotheticalScore !== null ? a.hypotheticalScore : "";
@@ -579,21 +608,194 @@
         }
 
         let classAvgStr = a.classAvg ? a.classAvg : "-";
-        let cohortAvgCell = activeCourse.isCohort ? `<td class="avg-col">${a.cohortAvg || "-"}</td>` : "";
+        let displayedTotal = (!a.total || isNaN(parseFloat(a.total)) || parseFloat(a.total) <= 0)
+          ? a.numTotal
+          : a.total;
+        let cohortAvgCell = activeCourse.isCohort
+          ? `<td class="avg-col">${escapeHtml(a.cohortAvg || "-")}</td>`
+          : "";
 
         tbody.innerHTML += `
           <tr>
-            <td>${formattedDate}</td>
-            <td>${a.name}</td>
-            <td>${a.category}</td>
+            <td>${escapeHtml(formattedDate)}</td>
+            <td>${escapeHtml(a.name)}</td>
+            <td>${escapeHtml(a.category)}</td>
             <td>${scoreCellHTML}</td>
-            <td>${a.total}</td>
+            <td>${escapeHtml(displayedTotal)}</td>
             <td><strong>${pctStr}</strong></td>
-            <td class="avg-col">${classAvgStr}</td>
+            <td class="avg-col">${escapeHtml(classAvgStr)}</td>
             ${cohortAvgCell}
           </tr>
         `;
       });
+    }
+
+    // ================================================================
+    // OPTIMIZED REQUEST FLOW
+    // These definitions replace the earlier versions above.
+    // ================================================================
+
+    var courseResponseCache = {};
+    var fetchGrades;
+    var loadCourse;
+
+    async function postJson(payload) {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      const rawText = await response.text();
+
+      try {
+        return JSON.parse(rawText);
+      } catch (error) {
+        console.error("NON-JSON SERVER RESPONSE:", rawText);
+        throw new Error("The server returned an unexpected response. Open F12 for details.");
+      }
+    }
+
+    // Login now returns only the student's course menu. It does not open
+    // every gradebook, which makes the first screen much faster.
+    fetchGrades = async function(semester) {
+      const isInitialLogin = !document.getElementById("loginScreen").classList.contains("hidden");
+      const loginButton = document.getElementById("loginButton");
+      const messageElement = isInitialLogin
+        ? document.getElementById("errorMsg")
+        : document.getElementById("semesterErrorMsg");
+
+      loginButton.disabled = true;
+      messageElement.style.color = "#0056b3";
+      messageElement.innerText = "Signing in...";
+
+      try {
+        const result = await postJson({
+          action: "login",
+          username: storedUser,
+          password: storedPass,
+          semester: semester
+        });
+
+        if (result.status !== "success") {
+          throw new Error(result.message || "Login failed.");
+        }
+
+        studentData = result.data;
+        document.getElementById("loginScreen").classList.add("hidden");
+        document.getElementById("semesterMenu").classList.add("hidden");
+        document.getElementById("errorMsg").innerText = "";
+        document.getElementById("semesterErrorMsg").innerText = "";
+
+        if (!studentData.courses.length) {
+          showMenu();
+          document.getElementById("courseErrorMsg").innerText =
+            "No courses are assigned to this account.";
+          return;
+        }
+
+        showMenu();
+        if (studentData.courses.length === 1) {
+          await loadCourse(0, true);
+        }
+      } catch (error) {
+        console.error("LOGIN ERROR:", error);
+        messageElement.style.color = "red";
+        messageElement.innerText = error.message || "Error connecting to server.";
+      } finally {
+        loginButton.disabled = false;
+      }
+    };
+
+    // Only the selected course is requested. The browser also remembers a
+    // course response for the rest of this page session.
+    loadCourse = async function(index, bypassed) {
+      const cacheKey = studentData.semester + ":" + index;
+      const courseMessage = document.getElementById("courseErrorMsg");
+
+      if (courseResponseCache[cacheKey]) {
+        displayCourse(courseResponseCache[cacheKey], index, bypassed);
+        return;
+      }
+
+      courseMessage.style.color = "#0056b3";
+      courseMessage.innerText = "Loading this course...";
+
+      const buttons = document.querySelectorAll(".course-btn");
+      buttons.forEach(button => button.disabled = true);
+
+      try {
+        const result = await postJson({
+          action: "getCourse",
+          username: storedUser,
+          password: storedPass,
+          semester: studentData.semester,
+          courseIndex: index
+        });
+
+        if (result.status !== "success") {
+          throw new Error(result.message || "The course could not be loaded.");
+        }
+
+        courseResponseCache[cacheKey] = result.data;
+        courseMessage.innerText = "";
+        displayCourse(result.data, index, bypassed);
+      } catch (error) {
+        console.error("COURSE LOAD ERROR:", error);
+        courseMessage.style.color = "red";
+        courseMessage.innerText = error.message || "Error connecting to server.";
+      } finally {
+        buttons.forEach(button => button.disabled = false);
+      }
+    };
+
+    function displayCourse(courseData, index, bypassed) {
+      activeCourse = courseData;
+      assignmentsList = activeCourse.assignments.map((assignment, assignmentIndex) => {
+        const score = parseFloat(assignment.score);
+        let total = parseFloat(assignment.total);
+
+        // This keeps the behavior of your latest file. If Row 6 has no valid
+        // maximum, What-If mode treats it as a 100-point assignment.
+        if (isNaN(total) || total <= 0) total = 100;
+
+        const percentage = !isNaN(score) ? (score / total) * 100 : null;
+        return {
+          ...assignment,
+          originalIndex: assignmentIndex,
+          hypotheticalScore: null,
+          isGraded: !isNaN(score),
+          numTotal: total,
+          numScore: isNaN(score) ? 0 : score,
+          sortPct: percentage === null ? -1 : percentage
+        };
+      });
+
+      document.getElementById("semesterMenu").classList.add("hidden");
+      document.getElementById("courseMenu").classList.add("hidden");
+      document.getElementById("dashboard").classList.remove("hidden");
+      document.getElementById("dashboardCourseName").innerText = activeCourse.name;
+      document.getElementById("classRank").innerText = activeCourse.classRank || "N/A";
+
+      const backButton = document.getElementById("dashBackBtn");
+      if (studentData.courses.length === 1 || bypassed) {
+        backButton.innerText = "Switch Semester";
+        backButton.onclick = showSemesterMenu;
+      } else {
+        backButton.innerText = "Back to Courses";
+        backButton.onclick = showMenu;
+      }
+
+      if (activeCourse.isCohort) {
+        document.getElementById("cohortRankContainer").style.display = "inline";
+        document.getElementById("cohortRank").innerText = activeCourse.cohortRank || "N/A";
+        document.getElementById("thCohortAvg").style.display = "table-cell";
+      } else {
+        document.getElementById("cohortRankContainer").style.display = "none";
+        document.getElementById("thCohortAvg").style.display = "none";
+      }
+
+      currentSort = { column: null, ascending: true };
+      recalculateGrades();
+      renderTable();
     }
   </script>
 </body>
