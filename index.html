@@ -39,6 +39,17 @@
     .summary-card .converted { font-size: 13px; color: #0056b3; margin-top: 6px; font-weight: 600; }
     .summary-card.exam .converted { color: #d9534f; font-size: 14px; }
 
+    /* Projected report-card results */
+    .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 15px; margin: 20px 0; }
+    .result-card { background: #f3f6f9; border-left: 5px solid #6c757d; border-radius: 8px; padding: 18px; text-align: center; }
+    .result-card.primary { background: #eaf3ff; border-left-color: #0056b3; }
+    .result-card h4 { margin: 0 0 8px; color: #555; font-size: 13px; text-transform: uppercase; }
+    .result-value { color: #222; font-size: 30px; font-weight: 750; }
+    .result-card.primary .result-value { color: #0056b3; font-size: 38px; }
+    .result-detail { color: #666; font-size: 13px; margin-top: 7px; }
+    .result-warning { color: #b35a00; font-size: 13px; font-weight: 650; margin-top: 7px; }
+    .projection-notice { color: #666; font-size: 12px; margin: -8px 0 18px; text-align: center; }
+
     .what-if-mode { color: #d08c00 !important; }
     .what-if-card { background: #fff8e1 !important; border-left-color: #d08c00 !important; }
     .whatif-input { width: 70px; padding: 6px; border: 2px solid #0056b3; border-radius: 4px; font-weight: bold; text-align: center; }
@@ -133,6 +144,26 @@
       <span id="cohortRankContainer" style="color: #555; font-size: 0.85em; border-left: 2px solid #ccc; padding-left: 15px; display: none;">Cohort Rank: <strong id="cohortRank"></strong></span>
       <span id="whatIfBadge" style="font-size: 14px; color: #d08c00; display: none;">(What-If Mode Active)</span>
     </h2>
+
+    <div class="result-grid" aria-label="Projected report card results">
+      <div class="result-card primary">
+        <h4>Projected Ranking / 석차등급</h4>
+        <div class="result-value" id="projectedRankLevel">-</div>
+        <div class="result-detail" id="rankingGroupDetail"></div>
+        <div class="result-warning" id="projectedRankNote"></div>
+      </div>
+      <div class="result-card">
+        <h4>NEIS Achievement / 성취도</h4>
+        <div class="result-value" id="achievementLevel">-</div>
+        <div class="result-detail" id="achievementDetail"></div>
+      </div>
+      <div class="result-card">
+        <h4>English Letter Grade</h4>
+        <div class="result-value" id="englishLetterGrade">-</div>
+        <div class="result-detail" id="gradePointsDetail"></div>
+      </div>
+    </div>
+    <p class="projection-notice">Projected results only. Final report-card results are determined by the school.</p>
     
     <div id="categorySummaries" class="summary-container"></div>
     <div id="examSummaries" class="exam-container"></div>
@@ -774,6 +805,26 @@
       document.getElementById("dashboard").classList.remove("hidden");
       document.getElementById("dashboardCourseName").innerText = activeCourse.name;
       document.getElementById("classRank").innerText = activeCourse.classRank || "N/A";
+
+      document.getElementById("projectedRankLevel").innerText =
+        activeCourse.projectedRankLevel || "-";
+      document.getElementById("rankingGroupDetail").innerText =
+        (activeCourse.rankingBasis || "Ranking group") + " • " +
+        (activeCourse.rankingGroupSize || 0) + " students";
+      document.getElementById("projectedRankNote").innerText =
+        activeCourse.projectedRankNote || "";
+      document.getElementById("achievementLevel").innerText =
+        activeCourse.achievementLevel || "-";
+      document.getElementById("achievementDetail").innerText =
+        activeCourse.roundedScore === null || typeof activeCourse.roundedScore === "undefined"
+          ? ""
+          : "Rounded score: " + activeCourse.roundedScore + "%";
+      document.getElementById("englishLetterGrade").innerText =
+        activeCourse.letterGrade || "-";
+      document.getElementById("gradePointsDetail").innerText =
+        activeCourse.gradePoints === null || typeof activeCourse.gradePoints === "undefined"
+          ? ""
+          : "Grade points: " + Number(activeCourse.gradePoints).toFixed(1);
 
       const backButton = document.getElementById("dashBackBtn");
       if (studentData.courses.length === 1 || bypassed) {
