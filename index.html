@@ -53,6 +53,11 @@
     .what-if-mode { color: #d08c00 !important; }
     .what-if-card { background: #fff8e1 !important; border-left-color: #d08c00 !important; }
     .whatif-input { width: 70px; padding: 6px; border: 2px solid #0056b3; border-radius: 4px; font-weight: bold; text-align: center; }
+    .assignment-status { display: inline-block; padding: 4px 9px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+    .assignment-status.incomplete { color: #7a4d00; background: #fff3cd; border: 1px solid #e6bf5b; }
+    .assignment-status.missing { color: #9b1c1c; background: #fde8e8; border: 1px solid #ef9a9a; }
+    .status-whatif { margin-top: 6px; font-size: 11px; color: #666; }
+    .status-whatif .whatif-input { display: block; width: 64px; margin: 3px auto 0; }
 
     .table-container { overflow-x: auto; margin-top: 20px; border-radius: 5px; border: 1px solid #ddd; width: 100%; }
     table { width: 100%; border-collapse: collapse; }
@@ -483,6 +488,17 @@
       return n;
     }
 
+    function getAssignmentStatus(value) {
+      const code = String(value ?? "").trim().toUpperCase();
+      if (code === "I" || code === "INCOMPLETE") {
+        return { label: "Incomplete", className: "incomplete" };
+      }
+      if (code === "M" || code === "MISSING") {
+        return { label: "Missing", className: "missing" };
+      }
+      return null;
+    }
+
     function parseDateForSort(dateStr) {
       if (!dateStr || dateStr === "-") return 0;
       let parts = dateStr.split('/');
@@ -620,7 +636,15 @@
         let pctStr = "-";
         let scoreCellHTML = "";
         
-        if (a.isGraded) {
+        const assignmentStatus = getAssignmentStatus(a.score);
+        if (assignmentStatus) {
+          let val = a.hypotheticalScore !== null ? a.hypotheticalScore : "";
+          scoreCellHTML = `<span class="assignment-status ${assignmentStatus.className}">${escapeHtml(assignmentStatus.label)}</span>` +
+            `<div class="status-whatif">What-if score<input type="number" class="whatif-input" value="${val}" placeholder="?" oninput="updateHypothetical(${a.originalIndex}, this.value)"></div>`;
+          if (a.hypotheticalScore !== null && a.numTotal !== 0) {
+            pctStr = `<span class="what-if-mode">${((a.hypotheticalScore / a.numTotal) * 100).toFixed(1)}%</span>`;
+          }
+        } else if (a.isGraded) {
           scoreCellHTML = escapeHtml(a.score);
           if (a.numTotal !== 0) pctStr = ((a.numScore / a.numTotal) * 100).toFixed(1) + "%";
         } else {
